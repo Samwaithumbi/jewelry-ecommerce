@@ -8,7 +8,11 @@ import { Resend } from "resend"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const handler = NextAuth({
+import type { NextAuthOptions } from "next-auth"
+
+import { cookies } from "next/headers"
+
+export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db, {
     usersTable: users,
     accountsTable: accounts,
@@ -50,6 +54,37 @@ const handler = NextAuth({
     strategy: "jwt",
   },
   secret: process.env.NEXTAUTH_SECRET,
-})
+  callbacks: {
+    async signIn({ user }) {
+      if (user?.id) {
+        try {
+          const cookieStore = await cookies();
+          const guestSessionId = cookieStore.get("guest_session")?.value;
+          if (guestSessionId) {
+            const { mergeCarts } = await import("@/app/actions/cart/merge-carts");
+            await mergeCarts(guestSessionId, user.id);
+            // Optionally delete the cookie to prevent re-merging on next login
+            try {
+               cookieStore.delete("guest_session");
+            } catch (e) {
+               // Ignore if headers already sent
+            }
+          }
+        } catch (error) {
+          console.error("Error merging carts on sign-in", error);
+        }
+      }
+      return true;
+    },
+    async session({ session, token }) {
+      if (session.user && token.sub) {
+        session.user.id = token.sub;
+      }
+      return session;
+    }
+  }
+}
+
+const handler = NextAuth(authOptions)
 
 export { handler as GET, handler as POST }

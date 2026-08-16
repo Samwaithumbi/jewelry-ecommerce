@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "@/components/providers/session-provider"
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
+import { CartSheet } from "@/components/cart/cart-sheet";
+import { Navbar } from "@/components/navbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,6 +30,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <NuqsAdapter>
+         <Navbar/>
           <AuthProvider>{children}</AuthProvider>
         </NuqsAdapter>
       </body>

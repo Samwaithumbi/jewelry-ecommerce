@@ -3,7 +3,10 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { ShoppingCart, Heart, Plus, Minus } from "lucide-react"
+import { ShoppingCart, Heart, Plus, Minus, Loader2 } from "lucide-react"
+import { addToCart } from "@/app/actions/cart/add-to-cart"
+import { CartItem } from "@/types/cart"
+import { useTransition } from "react"
 
 interface Variant {
   id: string
@@ -14,6 +17,9 @@ interface Variant {
 }
 
 interface ProductClientProps {
+  productId: string
+  productName: string
+  productImage: string
   basePriceCents: number
   metalPriceCents: number // metalPricePerGram * weight
   variants: Variant[]
@@ -21,6 +27,9 @@ interface ProductClientProps {
 }
 
 export function ProductClient({
+  productId,
+  productName,
+  productImage,
   basePriceCents,
   metalPriceCents,
   variants,
@@ -30,6 +39,7 @@ export function ProductClient({
   const initialVariant = variants.find(v => v.stockQty > 0) || variants[0]
   const [selectedVariant, setSelectedVariant] = React.useState<Variant | undefined>(initialVariant)
   const [quantity, setQuantity] = React.useState(1)
+  const [isPending, startTransition] = useTransition()
 
   const hasSizes = variants.some(v => v.size)
   const currentVariant = selectedVariant || initialVariant
@@ -45,6 +55,26 @@ export function ProductClient({
   })
 
   const isOutOfStock = currentVariant && currentVariant.stockQty <= 0
+
+  const handleAddToCart = () => {
+    if (!currentVariant || isOutOfStock) return
+
+    const cartItem: CartItem = {
+      productId,
+      variantId: currentVariant.id,
+      name: productName,
+      variantName: currentVariant.size ? `${category === "ring" ? "Size" : "Size"} ${currentVariant.size}` : undefined,
+      image: productImage,
+      priceAtAdd: basePriceCents + metalPriceCents + (currentVariant.priceAdjustCents || 0),
+      qty: quantity,
+    }
+
+    startTransition(async () => {
+      await addToCart(cartItem)
+      // Dispatch event to update cart count in navbar
+      window.dispatchEvent(new Event('cart-update'))
+    })
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -142,11 +172,16 @@ export function ProductClient({
               </button>
             </div>
             
-            <Button 
+            <Button
               className="flex-1 h-12 rounded-full bg-[#111827] text-white hover:bg-[#111827]/90 shadow-sm text-base font-semibold"
-              disabled={isOutOfStock}
+              disabled={isOutOfStock || isPending}
+              onClick={handleAddToCart}
             >
-              <ShoppingCart className="size-5 mr-2" />
+              {isPending ? (
+                <Loader2 className="size-5 mr-2 animate-spin" />
+              ) : (
+                <ShoppingCart className="size-5 mr-2" />
+              )}
               Add to Cart
             </Button>
             

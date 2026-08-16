@@ -168,7 +168,10 @@ export default async function ProductPage({ params }: { params: Params }) {
                     <SizeGuideDialog />
                   </div>
                 )}
-                <ProductClient 
+                <ProductClient
+                  productId={product.id}
+                  productName={product.name}
+                  productImage={images[0]?.url || "/placeholder-jewelry.jpg"}
                   basePriceCents={product.basePriceCents}
                   metalPriceCents={metalPriceCents}
                   variants={variants}
