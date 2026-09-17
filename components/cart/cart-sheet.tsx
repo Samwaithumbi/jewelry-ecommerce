@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Minus, Plus, Trash2, Loader2 } from "lucide-react";
@@ -43,6 +44,7 @@ export function CartButton({ onClick }: { onClick?: () => void }) {
 }
 
 export function CartSheet() {
+    const router = useRouter();
     const [cart, setCart] = useState<Cart | null>(null);
     const [isOpen, setIsOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
@@ -163,7 +165,12 @@ export function CartSheet() {
                             <span>Subtotal</span>
                             <span>${(subtotal / 100).toFixed(2)}</span>
                         </div>
-                        <Button className="w-full" size="lg" disabled={isPending}>
+                        <Button 
+                            className="w-full" 
+                            size="lg" 
+                            disabled={isPending}
+                            onClick={() => router.push('/shop/checkout')}
+                        >
                             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Checkout
                         </Button>

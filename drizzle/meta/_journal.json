@@ -8,6 +8,13 @@
       "when": 1778070643119,
       "tag": "0000_omniscient_exodus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786986487957,
+      "tag": "0001_plain_wild_child",
+      "breakpoints": true
     }
   ]
 }

@@ -35,7 +35,8 @@ import {
   export const loyaltyTypeEnum  = pgEnum("loyalty_type", ["earn_purchase","earn_review","earn_referral","redeem","expire","bonus"]);
   export const affiliateStatusEnum = pgEnum("affiliate_status", ["pending","active","paused","terminated"]);
   export const vendorStatusEnum = pgEnum("vendor_status", ["pending","active","suspended"]);
-  
+  export const paymentStatusEnum = pgEnum("payment_status", ["pending","success","failed","cancelled"]);
+
   const ts = () => timestamp("created_at", { withTimezone: true }).defaultNow().notNull();
   // ── Auth Tables (NextAuth v5) ────────────────────────────────────────────────
   export const users = pgTable("users", {
@@ -249,7 +250,33 @@ import {
   }, (t: any) => ({
     orderIdx: index("order_items_order_idx").on(t.orderId),
   }));
-  
+
+  // ── Payments (Safaricom Daraja / M-Pesa) ───────────────────────────────────────
+  export const payments = pgTable("payments", {
+    id:                  uuid("id").primaryKey().defaultRandom(),
+    orderId:             uuid("order_id").notNull(),
+    provider:            varchar("provider", { length: 50 }).notNull(),
+    amount:              integer("amount_cents").notNull(),
+    phoneNumber:         varchar("phone_number", { length: 20 }).notNull(),
+    status:              paymentStatusEnum("status").default("pending").notNull(),
+    merchantRequestId:   varchar("merchant_request_id", { length: 100 }),
+    checkoutRequestId:   varchar("checkout_request_id", { length: 100 }).unique(),
+    mpesaReceiptNumber:  varchar("mpesa_receipt_number", { length: 50 }),
+    resultCode:          varchar("result_code", { length: 10 }),
+    resultDescription:   text("result_description"),
+    transactionDate:     timestamp("transaction_date", { withTimezone: true }),
+    expiresAt:           timestamp("expires_at", { withTimezone: true }),
+    createdAt:           ts(),
+    updatedAt:           timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  }, (t: any) => ({
+    orderIdx:           index("payments_order_idx").on(t.orderId),
+    statusIdx:          index("payments_status_idx").on(t.status),
+    checkoutReqIdx:     uniqueIndex("payments_checkout_req_idx").on(t.checkoutRequestId),
+    merchantReqIdx:     index("payments_merchant_req_idx").on(t.merchantRequestId),
+    mpesaReceiptIdx:    index("payments_mpesa_receipt_idx").on(t.mpesaReceiptNumber),
+    expiresIdx:         index("payments_expires_idx").on(t.expiresAt),
+  }));
+
   // ── AI / ML ──────────────────────────────────────────────────────────────────
   export const userEvents = pgTable("user_events", {
     id:         uuid("id").primaryKey().defaultRandom(),
