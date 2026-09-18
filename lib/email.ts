@@ -9,6 +9,7 @@ import { render } from '@react-email/render';
 import OrderConfirmedEmail from '@/components/templates/order-confirmed';
 import OrderShippedEmail from '@/components/templates/order-shipped';
 import OrderDeliveredEmail from '@/components/templates/order-delivered';
+import CustomRequestEmail from '@/components/templates/custom-request';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -167,6 +168,58 @@ export async function sendOrderDeliveredEmail(data: OrderDeliveredData) {
     return { success: true, data: resendData };
   } catch (error) {
     console.error('Error sending order delivered email:', error);
+    return { success: false, error };
+  }
+}
+
+interface CustomRequestData {
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  description: string;
+  budgetMin?: string;
+  budgetMax?: string;
+  metalPreference?: string;
+  timeline?: string;
+  photoUrls?: string[];
+  requestId: string;
+}
+
+/**
+ * Send custom request notification email to admin
+ */
+export async function sendCustomRequestNotification(data: CustomRequestData) {
+  try {
+    const emailHtml = await render(
+      CustomRequestEmail({
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        customerPhone: data.customerPhone,
+        description: data.description,
+        budgetMin: data.budgetMin,
+        budgetMax: data.budgetMax,
+        metalPreference: data.metalPreference,
+        timeline: data.timeline,
+        photoUrls: data.photoUrls,
+        requestId: data.requestId,
+      })
+    );
+
+    const { data: resendData, error } = await resend.emails.send({
+      from: `${STORE_NAME} <${FROM_EMAIL}>`,
+      to: ['admin@luminajewelry.com'], // Replace with actual admin email
+      subject: `New Custom Jewelry Request - ${data.customerName}`,
+      html: emailHtml,
+    });
+
+    if (error) {
+      console.error('Failed to send custom request notification:', error);
+      return { success: false, error };
+    }
+
+    return { success: true, data: resendData };
+  } catch (error) {
+    console.error('Failed to send custom request notification:', error);
     return { success: false, error };
   }
 }

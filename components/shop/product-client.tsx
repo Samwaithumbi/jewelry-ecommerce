@@ -3,10 +3,13 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { ShoppingCart, Heart, Plus, Minus, Loader2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { ShoppingCart, Heart, Plus, Minus, Loader2, Type } from "lucide-react"
 import { addToCart } from "@/app/actions/cart/add-to-cart"
 import { CartItem } from "@/types/cart"
 import { useTransition } from "react"
+import { EngravingPreview } from "./engraving-preview"
 
 interface Variant {
   id: string
@@ -40,13 +43,26 @@ export function ProductClient({
   const [selectedVariant, setSelectedVariant] = React.useState<Variant | undefined>(initialVariant)
   const [quantity, setQuantity] = React.useState(1)
   const [isPending, startTransition] = useTransition()
+  
+  // Engraving state
+  const [engravingText, setEngravingText] = React.useState("")
+  const [engravingFont, setEngravingFont] = React.useState<"script" | "block" | "classic" | "">("")
+  
+  const ENGRAVING_FONTS = {
+    script: { name: "Script", cssFont: "'Great Vibes', cursive" },
+    block: { name: "Block", cssFont: "'Oswald', sans-serif" },
+    classic: { name: "Classic", cssFont: "'Playfair Display', serif" }
+  }
+  
+  const ENGRAVING_PRICE_CENTS = 1500 // $15
 
   const hasSizes = variants.some(v => v.size)
   const currentVariant = selectedVariant || initialVariant
   
-  // Calculate total price
+  // Calculate total price including engraving
   const variantAdjust = currentVariant?.priceAdjustCents || 0
-  const totalPrice = (basePriceCents + metalPriceCents + variantAdjust) * quantity
+  const engravingPrice = (engravingText && engravingFont) ? ENGRAVING_PRICE_CENTS : 0
+  const totalPrice = (basePriceCents + metalPriceCents + variantAdjust + engravingPrice) * quantity
   
   const formatter = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -65,8 +81,11 @@ export function ProductClient({
       name: productName,
       variantName: currentVariant.size ? `${category === "ring" ? "Size" : "Size"} ${currentVariant.size}` : undefined,
       image: productImage,
-      priceAtAdd: basePriceCents + metalPriceCents + (currentVariant.priceAdjustCents || 0),
+      priceAtAdd: basePriceCents + metalPriceCents + (currentVariant.priceAdjustCents || 0) + engravingPrice,
       qty: quantity,
+      engravingText: engravingText || undefined,
+      engravingFont: engravingFont || undefined,
+      engravingPriceCents: engravingPrice || undefined,
     }
 
     startTransition(async () => {
@@ -91,6 +110,73 @@ export function ProductClient({
       </div>
 
       <div className="flex flex-col gap-6">
+        {/* Engraving Section - Only for rings */}
+        {category === "ring" && (
+          <div className="space-y-4 p-4 bg-[#FCFBF9] border border-primary/10 rounded-xl">
+            <div className="flex items-center gap-2">
+              <Type className="size-4 text-[#B88E2F]" />
+              <label className="text-sm font-medium text-[#111827]">
+                Personalize with Engraving
+              </label>
+            </div>
+            
+            {/* Text Input */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="engraving-text" className="text-xs">Engraving Text</Label>
+                <span className={`text-xs ${engravingText.length > 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  {engravingText.length}/20
+                </span>
+              </div>
+              <Input
+                id="engraving-text"
+                placeholder="Enter text (max 20 characters)"
+                value={engravingText}
+                onChange={(e) => setEngravingText(e.target.value.slice(0, 20))}
+                maxLength={20}
+                className="border-primary/20"
+              />
+            </div>
+
+            {/* Font Selector */}
+            {engravingText && (
+              <div className="space-y-2">
+                <Label className="text-xs">Font Style</Label>
+                <div className="flex gap-2">
+                  {Object.entries(ENGRAVING_FONTS).map(([key, font]) => (
+                    <button
+                      key={key}
+                      onClick={() => setEngravingFont(key as "script" | "block" | "classic")}
+                      className={cn(
+                        "flex-1 h-12 rounded-lg border-2 transition-all duration-200",
+                        engravingFont === key
+                          ? "border-[#B88E2F] bg-[#B88E2F]/10"
+                          : "border-primary/20 bg-white hover:border-[#B88E2F]/50"
+                      )}
+                      style={{ fontFamily: font.cssFont }}
+                    >
+                      {font.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Preview */}
+            {engravingText && engravingFont && (
+              <EngravingPreview text={engravingText} font={engravingFont} />
+            )}
+
+            {/* Price Display */}
+            {engravingPrice > 0 && (
+              <div className="flex items-center justify-between text-sm pt-2 border-t border-primary/10">
+                <span className="text-muted-foreground">Engraving</span>
+                <span className="font-medium text-[#111827]">+${(engravingPrice / 100).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Variants Selector */}
         {hasSizes && (
           <div className="space-y-4">

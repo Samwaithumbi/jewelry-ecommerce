@@ -1,9 +1,14 @@
+"use client"
+
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Heart, Plus, Star } from "lucide-react"
+import { useState, useTransition } from "react"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { addToWishlist } from "@/app/actions/wishlist/add-to-wishlist"
 
 interface ProductCardProps {
   product: {
@@ -23,9 +28,28 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+  const router = useRouter()
+  const [isWishlisted, setIsWishlisted] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  
   const price = product.basePriceCents / 100
   const originalPrice = product.originalPriceCents ? product.originalPriceCents / 100 : null
-  const imageUrl = product.images?.[0]?.url || "/placeholder-jewelry.jpg" // Using an external placeholder if needed, but we should probably just use a div block
+  const imageUrl = product.images?.[0]?.url || "/placeholder-jewelry.jpg"
+
+  const handleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault()
+    startTransition(async () => {
+      try {
+        await addToWishlist(product.id)
+        setIsWishlisted(!isWishlisted)
+      } catch (error) {
+        // If user is not logged in, redirect to sign-in page
+        if (error instanceof Error && error.message.includes('logged in')) {
+          router.push('/sign-in?callbackUrl=/products')
+        }
+      }
+    })
+  }
 
   return (
     <div className="group relative flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm transition-all hover:shadow-md border border-primary/5">
@@ -43,8 +67,17 @@ export function ProductCard({ product }: ProductCardProps) {
       </div>
 
       {/* Wishlist Button */}
-      <button className="absolute right-4 top-4 z-10 flex size-8 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm text-[#111827] transition-colors hover:bg-white hover:text-red-500 shadow-sm border border-primary/10">
-        <Heart className="size-4" />
+      <button 
+        onClick={handleWishlist}
+        disabled={isPending}
+        className={cn(
+          "absolute right-4 top-4 z-10 flex size-8 items-center justify-center rounded-full backdrop-blur-sm transition-all duration-200 shadow-sm border",
+          isWishlisted 
+            ? "bg-red-500 text-white border-red-500 scale-110" 
+            : "bg-white/80 text-[#111827] border-primary/10 hover:bg-white hover:text-red-500"
+        )}
+      >
+        <Heart className={cn("size-4 transition-all duration-200", isWishlisted && "fill-current")} />
       </button>
 
       {/* Image Container */}

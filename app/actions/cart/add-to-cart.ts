@@ -12,7 +12,11 @@ export async function addToCart(item: CartItem) {
     const cart = await getCart(sessionId);
 
     const existingItemIndex = cart.items.findIndex(
-        (i) => i.productId === item.productId && i.variantId === item.variantId
+        (i) => 
+            i.productId === item.productId && 
+            i.variantId === item.variantId &&
+            i.engravingText === item.engravingText &&
+            i.engravingFont === item.engravingFont
     );
 
     if (existingItemIndex > -1) {

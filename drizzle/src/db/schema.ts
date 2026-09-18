@@ -36,6 +36,7 @@ import {
   export const affiliateStatusEnum = pgEnum("affiliate_status", ["pending","active","paused","terminated"]);
   export const vendorStatusEnum = pgEnum("vendor_status", ["pending","active","suspended"]);
   export const paymentStatusEnum = pgEnum("payment_status", ["pending","success","failed","cancelled"]);
+  export const customRequestStatusEnum = pgEnum("custom_request_status", ["pending","reviewing","quoted","approved","rejected","completed"]);
 
   const ts = () => timestamp("created_at", { withTimezone: true }).defaultNow().notNull();
   // ── Auth Tables (NextAuth v5) ────────────────────────────────────────────────

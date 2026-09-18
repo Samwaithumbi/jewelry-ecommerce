@@ -22,9 +22,16 @@ interface ShippingAddress {
   country: string;
 }
 
+interface GiftOptions {
+  isGiftWrap: boolean;
+  giftMessage: string;
+  shipAsGift: boolean;
+}
+
 export async function createOrderFromCart(
   userId?: string,
-  shippingAddress?: ShippingAddress
+  shippingAddress?: ShippingAddress,
+  giftOptions?: GiftOptions
 ) {
   try {
     // Get cart items
@@ -43,8 +50,9 @@ export async function createOrderFromCart(
     // For now, use fixed shipping and tax
     // In production, calculate based on shipping address, location, etc.
     const shippingCents = 0; // Free shipping for now
-    const taxCents = Math.round(subtotalCents * 0.16); // 16% VAT
-    const totalCents = subtotalCents + shippingCents + taxCents;
+    const giftWrapCents = giftOptions?.isGiftWrap ? 1200 : 0; // $12
+    const taxCents = Math.round((subtotalCents + giftWrapCents) * 0.16); // 16% VAT
+    const totalCents = subtotalCents + shippingCents + giftWrapCents + taxCents;
 
     // Generate order number
     const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -57,7 +65,7 @@ export async function createOrderFromCart(
       subtotalCents,
       shippingCents,
       taxCents,
-      giftWrapCents: 0,
+      giftWrapCents,
       discountCents: 0,
       totalCents,
       shippingAddress: shippingAddress ? {
@@ -77,6 +85,10 @@ export async function createOrderFromCart(
         postalCode: '',
         country: 'Kenya',
       },
+      isGift: giftOptions?.isGiftWrap || false,
+      giftMessage: giftOptions?.giftMessage || null,
+      giftWrap: giftOptions?.isGiftWrap || false,
+      hidePriceOnSlip: giftOptions?.shipAsGift || false,
     }).returning();
 
     const createdOrder = order[0];
@@ -89,6 +101,9 @@ export async function createOrderFromCart(
         variantId: item.variantId || null,
         qty: item.qty,
         priceCents: item.priceAtAdd,
+        engravingText: item.engravingText || null,
+        engravingFont: item.engravingFont || null,
+        engravingPriceCents: item.engravingPriceCents || null,
       });
     }
 

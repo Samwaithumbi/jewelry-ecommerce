@@ -49,6 +49,15 @@ export default function CheckoutPage() {
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // Gift options state
+  const [giftOptions, setGiftOptions] = useState({
+    isGiftWrap: false,
+    giftMessage: '',
+    shipAsGift: false,
+  });
+
+  const GIFT_WRAP_COST = 1200; // $12 in cents
+
   useEffect(() => {
     const fetchCart = async () => {
       const fetchedCart = await getCart();
@@ -62,8 +71,9 @@ export default function CheckoutPage() {
   const totalItems = cart?.items.reduce((acc, item) => acc + item.qty, 0) || 0;
   const subtotal = cart?.items.reduce((acc, item) => acc + (item.priceAtAdd * item.qty), 0) || 0;
   const shipping = 0; // Free shipping
-  const tax = Math.round(subtotal * 0.16); // 16% VAT
-  const total = subtotal + shipping + tax;
+  const giftWrapCost = giftOptions.isGiftWrap ? GIFT_WRAP_COST : 0;
+  const tax = Math.round((subtotal + giftWrapCost) * 0.16); // 16% VAT
+  const total = subtotal + shipping + giftWrapCost + tax;
 
   // Validate shipping form
   const validateShippingForm = () => {
@@ -107,7 +117,7 @@ export default function CheckoutPage() {
     setOrderError(null);
 
     try {
-      const result = await createOrderFromCart(undefined, shippingForm);
+      const result = await createOrderFromCart(undefined, shippingForm, giftOptions);
       
       if (result.success && result.orderId) {
         setOrderId(result.orderId);
@@ -313,6 +323,70 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
+                {/* Gift Options */}
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Gift Options</h3>
+                  
+                  {/* Gift Wrapping */}
+                  <div className="flex items-start gap-4 mb-4">
+                    <input
+                      type="checkbox"
+                      id="giftWrap"
+                      checked={giftOptions.isGiftWrap}
+                      onChange={(e) => setGiftOptions({ ...giftOptions, isGiftWrap: e.target.checked })}
+                      className="mt-1 h-5 w-5 text-[#B88E2F] rounded border-gray-300 focus:ring-[#B88E2F]"
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor="giftWrap" className="font-medium text-gray-900">
+                        Gift Wrapping (+${(GIFT_WRAP_COST / 100).toFixed(2)})
+                      </Label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Premium gift box with ribbon and tissue paper
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Gift Message */}
+                  {giftOptions.isGiftWrap && (
+                    <div className="mb-4">
+                      <Label htmlFor="giftMessage" className="font-medium text-gray-900">
+                        Gift Message (optional, max 200 characters)
+                      </Label>
+                      <textarea
+                        id="giftMessage"
+                        value={giftOptions.giftMessage}
+                        onChange={(e) => setGiftOptions({ ...giftOptions, giftMessage: e.target.value.slice(0, 200) })}
+                        placeholder="Write a personal message for the recipient..."
+                        rows={3}
+                        maxLength={200}
+                        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#B88E2F] focus:ring-1 focus:ring-[#B88E2F]"
+                      />
+                      <p className="text-xs text-gray-500 mt-1 text-right">
+                        {giftOptions.giftMessage.length}/200
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Ship as Gift */}
+                  <div className="flex items-start gap-4">
+                    <input
+                      type="checkbox"
+                      id="shipAsGift"
+                      checked={giftOptions.shipAsGift}
+                      onChange={(e) => setGiftOptions({ ...giftOptions, shipAsGift: e.target.checked })}
+                      className="mt-1 h-5 w-5 text-[#B88E2F] rounded border-gray-300 focus:ring-[#B88E2F]"
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor="shipAsGift" className="font-medium text-gray-900">
+                        Ship as Gift
+                      </Label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Hide price from packing slip and ship directly to recipient
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="mt-6 flex justify-end">
                   <Button
                     onClick={handleShippingSubmit}
@@ -423,6 +497,12 @@ export default function CheckoutPage() {
                   <span className="text-gray-600">Shipping</span>
                   <span className="font-medium text-green-600">FREE</span>
                 </div>
+                {giftOptions.isGiftWrap && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Gift Wrapping</span>
+                    <span className="font-medium">${(giftWrapCost / 100).toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Tax (16%)</span>
                   <span className="font-medium">${(tax / 100).toFixed(2)}</span>

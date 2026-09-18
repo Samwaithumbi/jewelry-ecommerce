@@ -7,6 +7,8 @@ export interface CartItem {
     priceAtAdd: number; // Storing price at add in cents
     qty: number;
     engravingText?: string;
+    engravingFont?: string;
+    engravingPriceCents?: number;
 }
 
 export interface Cart {
