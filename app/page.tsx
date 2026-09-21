@@ -1,12 +1,21 @@
-"use client"
-
-import {  signOut } from "next-auth/react";
+import { HeroSection } from "@/components/home/hero-section"
+import { ShopByCategory } from "@/components/home/shop-by-category"
+import { AIStylist } from "@/components/home/ai-stylist"
+import { BestSellers } from "@/components/home/best-sellers"
+import { NewArrivals } from "@/components/home/new-arrivals"
+import { Testimonials } from "@/components/home/testimonials"
+import { SocialGallery } from "@/components/home/social-gallery"
 
 export default function Home() {
   return (
-   <div>
-      <h1>Maison Doree</h1>
-      <button onClick={() => signOut({ callbackUrl: '/sign_in' })}>Sign out</button>
-   </div> 
-  );
+    <main>
+      <HeroSection />
+      <ShopByCategory />
+      <AIStylist />
+      <BestSellers />
+      <NewArrivals />
+      <Testimonials />
+      <SocialGallery />
+    </main>
+  )
 }
