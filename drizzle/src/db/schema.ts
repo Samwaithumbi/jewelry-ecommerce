@@ -317,4 +317,18 @@ import {
     createdAt:      ts(),
     updatedAt:      timestamp("updated_at", { withTimezone: true }),
   });
-  
+
+  // ── Wishlists ───────────────────────────────────────────────────────────────────
+  export const wishlists = pgTable("wishlists", {
+    id:         uuid("id").primaryKey().defaultRandom(),
+    userId:     uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    productId:  uuid("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+    variantId:  uuid("variant_id").references(() => productVariants.id, { onDelete: "set null" }),
+    note:       text("note"),
+    createdAt:  ts(),
+  }, (t: any) => ({
+    userIdx:       index("wishlists_user_idx").on(t.userId),
+    productIdx:    index("wishlists_product_idx").on(t.productId),
+    createdIdx:    index("wishlists_created_idx").on(t.createdAt),
+    uniqueProduct: uniqueIndex("wishlists_unique_product").on(t.userId, t.productId, t.variantId),
+  }));

@@ -45,7 +45,7 @@ export function ProductCard({ product }: ProductCardProps) {
       } catch (error) {
         // If user is not logged in, redirect to sign-in page
         if (error instanceof Error && error.message.includes('logged in')) {
-          router.push('/sign-in?callbackUrl=/products')
+          router.push('/sign_in?callbackUrl=/products')
         }
       }
     })

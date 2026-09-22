@@ -1,11 +1,11 @@
 "use server"
 
-import { neon } from '@neondatabase/serverless';
+import { db } from "@/lib/db"
+import { wishlists } from "@/drizzle/src/db/schema"
+import { eq, and } from "drizzle-orm"
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { revalidatePath } from 'next/cache';
-
-const sql = neon(process.env.DATABASE_URL!);
 
 export async function removeFromWishlist(wishlistId: string) {
   const session = await getServerSession(authOptions);
@@ -14,12 +14,14 @@ export async function removeFromWishlist(wishlistId: string) {
   }
 
   try {
-    await sql`
-      DELETE FROM wishlists 
-      WHERE id = ${wishlistId} 
-      AND user_id = ${session.user.id}
-    `;
+    await db
+      .delete(wishlists)
+      .where(and(
+        eq(wishlists.id, wishlistId),
+        eq(wishlists.userId, session.user.id)
+      ));
 
+    revalidatePath('/wishlist');
     revalidatePath('/account/wishlist');
     revalidatePath('/');
 

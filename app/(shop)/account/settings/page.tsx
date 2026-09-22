@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 export default async function AccountSettingsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    redirect('/sign-in?callbackUrl=/account/settings');
+    redirect('/sign_in?callbackUrl=/account/settings');
   }
 
   const reminders = await getReminders();
@@ -26,9 +26,9 @@ export default async function AccountSettingsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-serif font-semibold text-[#111827] mb-2">Account Settings</h1>
+        <h1 className="text-3xl font-bold text-[#111827] mb-2">Account Settings</h1>
         <p className="text-muted-foreground">Manage your account preferences and reminders</p>
       </div>
 

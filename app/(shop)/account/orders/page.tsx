@@ -75,7 +75,6 @@ export default function CustomerOrdersPage() {
   };
 
   const getTrackingUrl = (trackingNumber: string, carrier: string) => {
-    // Generate tracking URLs based on carrier
     const carrierUrls: Record<string, string> = {
       'FedEx': `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`,
       'UPS': `https://www.ups.com/track?tracknum=${trackingNumber}`,
@@ -86,9 +85,9 @@ export default function CustomerOrdersPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">My Orders</h1>
+        <h1 className="text-3xl font-bold text-[#111827] mb-2">My Orders</h1>
         <p className="text-muted-foreground">
           Track and manage your order history
         </p>
@@ -107,8 +106,8 @@ export default function CustomerOrdersPage() {
             <p className="text-muted-foreground mb-6">
               You haven't placed any orders yet. Start shopping to see your orders here.
             </p>
-            <a href="/shop/products">
-              <Button>
+            <a href="/products">
+              <Button className="bg-[#111827] text-white hover:bg-[#111827]/90">
                 Browse Products
               </Button>
             </a>
