@@ -1,18 +1,12 @@
 'use client';
 
-/**
- * Checkout Failure Page
- * 
- * This page displays when a payment fails or expires.
- * It shows error details and allows retry.
- */
-
+import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { XCircle, RefreshCw, Home, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
-export default function CheckoutFailurePage() {
+function CheckoutFailureContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error') || 'Payment failed or expired. Please try again.';
   const orderId = searchParams.get('orderId');
@@ -74,6 +68,22 @@ export default function CheckoutFailurePage() {
           Need help? Contact our support team
         </p>
       </div>
+    </div>
+  );
+}
+
+export default function CheckoutFailurePage() {
+  return (
+    <Suspense fallback={<CheckoutFailureFallback />}>
+      <CheckoutFailureContent />
+    </Suspense>
+  );
+}
+
+function CheckoutFailureFallback() {
+  return (
+    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+      <div className="text-gray-500">Loading...</div>
     </div>
   );
 }

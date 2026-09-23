@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db"
 import { wishlists, products, productImages, productVariants } from "@/drizzle/src/db/schema"
-import { eq, desc } from "drizzle-orm"
+import { eq, desc, and } from "drizzle-orm"
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
@@ -45,7 +45,7 @@ export async function getWishlist(): Promise<WishlistItem[]> {
       })
       .from(wishlists)
       .innerJoin(products, eq(wishlists.productId, products.id))
-      .leftJoin(productImages, eq(products.id, productImages.productId))
+      .leftJoin(productImages, and(eq(products.id, productImages.productId), eq(productImages.isPrimary, true)))
       .leftJoin(productVariants, eq(wishlists.variantId, productVariants.id))
       .where(eq(wishlists.userId, session.user.id))
       .orderBy(desc(wishlists.createdAt));

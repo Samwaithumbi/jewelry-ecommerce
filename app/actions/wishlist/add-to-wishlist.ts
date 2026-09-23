@@ -1,12 +1,11 @@
 "use server"
 
-import { neon } from '@neondatabase/serverless';
-import { randomUUID } from 'crypto';
+import { db } from "@/lib/db"
+import { wishlists } from "@/drizzle/src/db/schema"
+import { eq, and, or, isNull } from "drizzle-orm"
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { revalidatePath } from 'next/cache';
-
-const sql = neon(process.env.DATABASE_URL!);
 
 export async function addToWishlist(productId: string, variantId?: string, note?: string) {
   const session = await getServerSession(authOptions);
@@ -16,24 +15,34 @@ export async function addToWishlist(productId: string, variantId?: string, note?
 
   try {
     // Check if item already exists in wishlist
-    const existing = await sql`
-      SELECT id FROM wishlists 
-      WHERE user_id = ${session.user.id} 
-      AND product_id = ${productId}
-      AND (variant_id = ${variantId || null} OR (variant_id IS NULL AND ${variantId || null} IS NULL))
-    `;
+    const existing = await db
+      .select({ id: wishlists.id })
+      .from(wishlists)
+      .where(
+        and(
+          eq(wishlists.userId, session.user.id),
+          eq(wishlists.productId, productId),
+          variantId
+            ? eq(wishlists.variantId, variantId)
+            : isNull(wishlists.variantId)
+        )
+      )
+      .limit(1);
 
     if (existing.length > 0) {
       return { success: true, message: 'Item already in wishlist' };
     }
 
     // Add to wishlist
-    await sql`
-      INSERT INTO wishlists (id, user_id, product_id, variant_id, note)
-      VALUES (${randomUUID()}, ${session.user.id}, ${productId}, ${variantId || null}, ${note || null})
-    `;
+    await db.insert(wishlists).values({
+      userId: session.user.id,
+      productId,
+      variantId: variantId || null,
+      note: note || null,
+    });
 
     revalidatePath('/account/wishlist');
+    revalidatePath('/wishlist');
     revalidatePath('/');
 
     return { success: true };

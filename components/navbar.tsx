@@ -4,18 +4,25 @@ import Link from "next/link"
 import { Heart, Search, User, Sparkle, ChevronDown, Menu, X } from "lucide-react"
 import { CartSheet } from "@/components/cart/cart-sheet"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { getWishlistCount } from "@/app/actions/wishlist/get-wishlist-count"
 
 
-export function Navbar() {
+export function  Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [wishlistCount, setWishlistCount] = useState(0)
+
+  useEffect(() => {
+    getWishlistCount().then(setWishlistCount)
+  }, [])
 
   const handleSearch = () => {
-    setSearchOpen(!searchOpen)
-    
+    setSearchOpen(!searchOpen) 
     
   }
+
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
@@ -101,16 +108,15 @@ export function Navbar() {
 
         {/* Right Side Icons */}
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="text-[#111827] hover:text-[#B88E2F]" onClick={handleSearch}>
-            <Search className="h-5 w-5" />
-          </Button>
 
           <Button variant="ghost" size="icon" className="relative text-[#111827] hover:text-[#B88E2F]">
             <Link href="/wishlist">
               <Heart className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#B88E2F] text-[10px] text-white">
-                2
-              </span>
+              {wishlistCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#B88E2F] text-[10px] text-white">
+                  {wishlistCount}
+                </span>
+              )}
             </Link>
           </Button>
 

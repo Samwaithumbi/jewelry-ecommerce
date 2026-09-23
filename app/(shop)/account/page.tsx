@@ -25,6 +25,8 @@ export default async function AccountOverview() {
   // Fetch user data
   const userData = await db.select().from(users).where(eq(users.id, session.user.id)).limit(1)
   const user = userData[0]
+  console.log(user);
+  
 
   // Fetch order count
   const orderCountResult = await db
@@ -170,27 +172,46 @@ function StatCard({ title, value, subtitle, icon: Icon, color }: {
   icon: any
   color: 'blue' | 'gold' | 'red' | 'purple'
 }) {
-  const colors = {
-    blue: 'bg-blue-500',
-    gold: 'bg-[#B88E2F]',
-    red: 'bg-red-500',
-    purple: 'bg-purple-500',
-  }
+  
 
   return (
-    <Card className="border-primary/10">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className={`size-10 rounded-lg ${colors[color]} bg-opacity-10 flex items-center justify-center`}>
-            <Icon className={`size-5 ${colors[color].replace('bg-', 'text-')}`} />
-          </div>
-          <TrendingUp className="size-4 text-green-500" />
+   <Card className="group relative overflow-hidden border border-[#E8E0D5] bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
+  {/* Subtle accent */}
+  <div className="absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-[#C9A227]/10 blur-2xl transition-all duration-500 group-hover:bg-[#C9A227]/20" />
+
+  <CardContent className="relative p-6">
+    {/* Header */}
+    <div className="mb-6 flex items-start justify-between">
+      <div>
+        <p className="text-sm font-medium tracking-wide text-[#6B7280]">
+          {title}
+        </p>
+
+        <div className="mt-2 flex items-baseline gap-2">
+          <h3 className="text-3xl font-semibold tracking-tight text-[#111827]">
+            {value}
+          </h3>
         </div>
-        <h3 className="text-2xl font-bold text-[#111827] mb-1">{value}</h3>
-        <p className="text-sm text-muted-foreground mb-1">{title}</p>
-        <p className="text-xs text-[#B88E2F]">{subtitle}</p>
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Decorative indicator */}
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E8E0D5] bg-[#FAF8F4]">
+        <div className="h-2.5 w-2.5 rounded-full bg-[#C9A227] shadow-[0_0_0_4px_rgba(201,162,39,0.12)]" />
+      </div>
+    </div>
+
+    {/* Footer */}
+    <div className="flex items-center gap-2">
+      <span className="flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+        ↑
+      </span>
+
+      <p className="text-sm text-gray-500">
+        {subtitle}
+      </p>
+    </div>
+  </CardContent>
+</Card>
   )
 }
 
