@@ -50,14 +50,16 @@ const statusStyle: Record<string, string> = {
 /* ── sub-components ──────────────────────────────────────────────────────── */
 
 function DashboardHeader() {
+  const now = new Date()
+ 
   return (
     <div className="flex items-center justify-between border-b border-border bg-background px-6 py-4">
       {/* Left */}
       <div>
         <p className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase">
-          Dashboard
+          Dashboard Overview
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight">Good morning, Ava</h1>
+        <p>{now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
       </div>
 
       {/* Right */}
