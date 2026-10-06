@@ -14,6 +14,7 @@ import Image from "next/image";
 export function CartButton({ onClick }: { onClick?: () => void }) {
     const [cartItemCount, setCartItemCount] = useState(0);
 
+   
     useEffect(() => {
         const fetchCartCount = async () => {
             const cart = await getCart();
@@ -32,6 +33,7 @@ export function CartButton({ onClick }: { onClick?: () => void }) {
     }, []);
 
     return (
+        
         <Button variant="ghost" size="icon" className="relative text-[#111827] hover:text-[#B88E2F]" onClick={onClick}>
             <ShoppingCart className="h-5 w-5" />
             {cartItemCount > 0 && (
@@ -169,7 +171,12 @@ export function CartSheet() {
                             className="w-full" 
                             size="lg" 
                             disabled={isPending}
-                            onClick={() => router.push('/shop/checkout')}
+                            onClick={() =>{
+                                 router.push('/checkout')
+                                   setIsOpen(false)
+                                  }
+                                
+                                }
                         >
                             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Checkout

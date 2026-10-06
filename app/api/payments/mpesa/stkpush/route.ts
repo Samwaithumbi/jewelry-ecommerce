@@ -66,6 +66,10 @@ export async function POST(request: NextRequest) {
       normalizedPhone
     );
 
+    // #region agent log
+    fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'D',location:'app/api/payments/mpesa/stkpush/route.ts:POST',message:'STK initiate start',data:{orderId,paymentId:payment.id,amountCents:order.totalCents,phoneLast4:normalizedPhone.slice(-4)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     // Initiate STK Push with Daraja
     const stkPushResponse = await initiateStkPush(
       order.totalCents,
@@ -73,6 +77,10 @@ export async function POST(request: NextRequest) {
       order.orderNumber,
       'Jewelry Purchase'
     );
+
+    // #region agent log
+    fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'D',location:'app/api/payments/mpesa/stkpush/route.ts:POST',message:'STK initiate success',data:{paymentId:payment.id,checkoutRequestId:stkPushResponse.CheckoutRequestID,responseCode:stkPushResponse.ResponseCode},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     // Update payment with Daraja identifiers
     await updatePaymentWithStkPushIdentifiers(
@@ -125,6 +133,9 @@ export async function POST(request: NextRequest) {
 
     // Handle unexpected errors
     console.error('STK Push error:', error);
+    // #region agent log
+    fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'D',location:'app/api/payments/mpesa/stkpush/route.ts:catch',message:'STK initiate unexpected error',data:{errorName:error instanceof Error?error.name:'unknown',errorMessage:error instanceof Error?error.message:'unknown'},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     return NextResponse.json(
       {
         success: false,

@@ -52,6 +52,10 @@ export async function POST(request: NextRequest) {
       resultCode: callbackData.resultCode,
     });
 
+   
+    fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'A',location:'app/api/payments/mpesa/callback/route.ts:POST',message:'Callback received',data:{rawResultCode:callback?.Body?.stkCallback?.ResultCode,rawResultCodeType:typeof callback?.Body?.stkCallback?.ResultCode,extractedResultCode:callbackData.resultCode,extractedResultCodeType:typeof callbackData.resultCode,strictEqZeroString:callbackData.resultCode==='0',numericEqZero:Number(callbackData.resultCode)===0,checkoutRequestId:callbackData.checkoutRequestId},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     // Process callback (idempotent)
     try {
       const payment = await processPaymentCallback(callbackData);

@@ -230,6 +230,9 @@ import {
     createdAt:            ts(),
     shippedAt:            timestamp("shipped_at", { withTimezone: true }),
     deliveredAt:          timestamp("delivered_at", { withTimezone: true }),
+    emailConfirmationSent: timestamp("email_confirmation_sent", { withTimezone: true }),
+    emailShippedSent:     timestamp("email_shipped_sent", { withTimezone: true }),
+    emailDeliveredSent:   timestamp("email_delivered_sent", { withTimezone: true }),
   }, (t: any) => ({
     userIdx:    index("orders_user_idx").on(t.userId),
     statusIdx:  index("orders_status_idx").on(t.status),
@@ -331,4 +334,22 @@ import {
     productIdx:    index("wishlists_product_idx").on(t.productId),
     createdIdx:    index("wishlists_created_idx").on(t.createdAt),
     uniqueProduct: uniqueIndex("wishlists_unique_product").on(t.userId, t.productId, t.variantId),
+  }));
+
+  // ── Email Logs ─────────────────────────────────────────────────────────────────
+  export const emailLogs = pgTable("email_logs", {
+    id:         uuid("id").primaryKey().defaultRandom(),
+    orderId:    uuid("order_id").references(() => orders.id),
+    type:       text("type").notNull(), // 'confirmation', 'shipped', 'delivered', 'failed'
+    status:     text("status").notNull(), // 'sent', 'failed', 'retrying'
+    to:         text("to").notNull(),
+    error:      text("error"),
+    sentAt:     timestamp("sent_at", { withTimezone: true }),
+    retryCount: integer("retry_count").default(0),
+    createdAt:  ts(),
+  }, (t: any) => ({
+    orderIdx:   index("email_logs_order_idx").on(t.orderId),
+    typeIdx:    index("email_logs_type_idx").on(t.type),
+    statusIdx:  index("email_logs_status_idx").on(t.status),
+    createdIdx: index("email_logs_created_idx").on(t.createdAt),
   }));

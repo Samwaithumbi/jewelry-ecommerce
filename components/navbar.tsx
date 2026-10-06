@@ -15,12 +15,8 @@ export function  Navbar() {
 
   useEffect(() => {
     getWishlistCount().then(setWishlistCount)
-  }, [])
-
-  const handleSearch = () => {
-    setSearchOpen(!searchOpen) 
     
-  }
+  }, [])
 
 
 

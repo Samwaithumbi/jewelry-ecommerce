@@ -1,15 +1,33 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { XCircle, RefreshCw, Home, ArrowLeft } from 'lucide-react';
+import { XCircle, RefreshCw, Home, ArrowLeft, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { updatePaymentStatus } from '@/app/actions/checkout/order-error';
 
 function CheckoutFailureContent() {
   const searchParams = useSearchParams();
-  const error = searchParams.get('error') || 'Payment failed or expired. Please try again.';
+  const errorParam = searchParams.get('error') || 'Payment failed or expired. Please try again.';
   const orderId = searchParams.get('orderId');
+  const [failureReason, setFailureReason] = useState<string>(errorParam);
+  const hasNotifiedRef = useRef(false);
+
+  useEffect(() => {
+    if (orderId && !hasNotifiedRef.current) {
+      hasNotifiedRef.current = true;
+      updatePaymentStatus(orderId, 'cancelled', errorParam)
+        .then((res) => {
+          if (res?.reason) {
+            setFailureReason(res.reason);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to sync order failure status:', err);
+        });
+    }
+  }, [orderId, errorParam]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -24,20 +42,21 @@ function CheckoutFailureContent() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Payment Failed
           </h1>
-          <p className="text-gray-600 mb-8">
-            {error}
+          <p className="text-gray-600 mb-6">
+            We were unable to process your payment.
           </p>
 
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
-            <p className="text-sm text-red-700">
-              Your payment could not be processed. This could be due to:
+          {/* Stating the specific reason for the failure instead of listing generic reasons */}
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8 text-left">
+            <div className="flex items-center space-x-2 mb-1.5">
+              <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-red-800">
+                Reason for Failure
+              </span>
+            </div>
+            <p className="text-sm font-medium text-red-700 pl-6">
+              {failureReason}
             </p>
-            <ul className="text-left text-sm text-red-600 mt-2 space-y-1">
-              <li>• Payment timed out (15 minutes)</li>
-              <li>• Insufficient funds</li>
-              <li>• Transaction cancelled by user</li>
-              <li>• Network connectivity issues</li>
-            </ul>
           </div>
 
           <div className="space-y-3">

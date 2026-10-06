@@ -39,8 +39,8 @@ export async function GET(
       return NextResponse.json({
         success: false,
         status: paymentStatus.status,
-        error: paymentStatus.status === 'cancelled' 
-          ? 'Payment expired. Please initiate a new payment.' 
+        error: paymentStatus.status === 'cancelled'
+          ? 'Payment expired. Please initiate a new payment.'
           : 'Payment failed. Please try again.',
       }, { status: 400 });
     }

@@ -140,13 +140,17 @@ export default function CheckoutPage() {
   // Handle payment success
   const handlePaymentSuccess = (paymentId: string) => {
     console.log('Payment successful:', paymentId);
-    router.push(`/shop/checkout/success?orderId=${orderId}`);
+    const successPath = `/checkout/success?orderId=${orderId}`;
+    // #region agent log
+    fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'C',location:'app/(shop)/checkout/page.tsx:handlePaymentSuccess',message:'Redirecting after payment success',data:{paymentId,orderId,successPath},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    router.push(successPath);
   };
 
   // Handle payment failure
   const handlePaymentFailure = (error: string) => {
     console.error('Payment failed:', error);
-    router.push(`/shop/checkout/failure?error=${encodeURIComponent(error)}${orderId ? `&orderId=${orderId}` : ''}`);
+    router.push(`/checkout/failure?error=${encodeURIComponent(error)}${orderId ? `&orderId=${orderId}` : ''}`);
   };
 
   if (loading) {

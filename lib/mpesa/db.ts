@@ -22,7 +22,7 @@ import {
   InvalidAmountError,
   DuplicateCallbackError,
 } from './errors';
-import { formatTransactionDate } from './callback';
+import { formatTransactionDate, determinePaymentStatus } from './callback';
 
 /**
  * Create a new payment record
@@ -204,12 +204,12 @@ export async function processPaymentCallback(callbackData: ExtractedCallbackData
     throw new DuplicateCallbackError(callbackData.checkoutRequestId);
   }
 
-  // Determine payment status
-  const status = callbackData.resultCode === '0' 
-    ? PaymentStatus.SUCCESS 
-    : callbackData.resultCode === '1032' || callbackData.resultCode === '1037'
-    ? PaymentStatus.CANCELLED
-    : PaymentStatus.FAILED;
+  // Determine payment status (ResultCode may be number 0 or string "0")
+  const status = determinePaymentStatus(callbackData.resultCode);
+
+  // #region agent log
+  fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'A',location:'lib/mpesa/db.ts:processPaymentCallback',message:'Status derived from resultCode',data:{paymentId:payment.id,orderId:payment.orderId,resultCode:callbackData.resultCode,resultCodeType:typeof callbackData.resultCode,derivedStatus:status,strictEqZeroString:callbackData.resultCode==='0'},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 
   // Format transaction date
   const transactionDate = formatTransactionDate(callbackData.transactionDate);
@@ -224,7 +224,7 @@ export async function processPaymentCallback(callbackData: ExtractedCallbackData
     .set({
       status,
       mpesaReceiptNumber: callbackData.mpesaReceiptNumber,
-      resultCode: callbackData.resultCode,
+      resultCode: String(callbackData.resultCode),
       resultDescription: callbackData.resultDescription,
       transactionDate: transactionDate ? new Date(transactionDate) : null,
       updatedAt: new Date(),
@@ -240,6 +240,30 @@ export async function processPaymentCallback(callbackData: ExtractedCallbackData
         status: 'confirmed' as any, // Update to confirmed status
       })
       .where(eq(orders.id, payment.orderId));
+
+    // Send confirmation email (async, non-blocking)
+    const { sendOrderConfirmationEmailAsync } = await import('@/lib/email');
+    sendOrderConfirmationEmailAsync(payment.orderId).catch(error => {
+      console.error('Failed to send confirmation email:', error);
+    });
+  }
+
+  // If payment failed, update order status and send failure email
+  if (status === PaymentStatus.FAILED || status === PaymentStatus.CANCELLED) {
+    await db
+      .update(orders)
+      .set({
+        status: 'cancelled',
+      })
+      .where(eq(orders.id, payment.orderId));
+
+    const { sendPaymentFailedEmailAsync } = await import('@/lib/email');
+    sendPaymentFailedEmailAsync(
+      payment.orderId,
+      callbackData.resultDescription || 'Payment processing failed'
+    ).catch(error => {
+      console.error('Failed to send payment failed email:', error);
+    });
   }
 
   return updatedPayment[0];

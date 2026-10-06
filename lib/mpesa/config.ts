@@ -42,6 +42,8 @@ export function getMpesaConfig(): MpesaConfig {
   const callbackUrl = process.env.MPESA_CALLBACK_URL;
   const environment = (process.env.MPESA_ENV || 'sandbox') as MpesaEnvironment;
 
+  console.log('🔍 MPESA Environment:', environment);
+
   // Check if mock mode is enabled
   const isMock = environment === 'mock';
 

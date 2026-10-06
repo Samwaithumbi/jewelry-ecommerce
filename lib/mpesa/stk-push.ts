@@ -105,6 +105,13 @@ export async function initiateStkPush(
     // Generate password and timestamp
     const timestamp = generateTimestamp();
     const password = generateStkPushPassword();
+    const passwordTimestamp = (() => {
+      const decoded = Buffer.from(password, 'base64').toString('utf8');
+      return decoded.slice(config.shortcode.length + config.passkey.length);
+    })();
+    // #region agent log
+    fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'B',location:'lib/mpesa/stk-push.ts:initiateStkPush',message:'STK password vs request timestamp',data:{timestamp,passwordTimestamp,timestampsMatch:timestamp===passwordTimestamp,amountKSh,phoneLast4:normalizedPhone.slice(-4),env:config.environment,callbackHost:config.callbackUrl.split('/')[2]},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     // Get access token
     const accessToken = await getAccessToken();

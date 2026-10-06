@@ -42,15 +42,15 @@ export function extractCallbackData(callback: DarajaCallback): ExtractedCallback
       CallbackMetadata,
     } = stkCallback;
 
-    if (!MerchantRequestID) {
+    if (MerchantRequestID === undefined || MerchantRequestID === null) {
       throw new InvalidCallbackError('Missing MerchantRequestID');
     }
 
-    if (!CheckoutRequestID) {
+    if (CheckoutRequestID === undefined || CheckoutRequestID === null) {
       throw new InvalidCallbackError('Missing CheckoutRequestID');
     }
 
-    if (!ResultCode) {
+    if (ResultCode === undefined || ResultCode === null) {
       throw new InvalidCallbackError('Missing ResultCode');
     }
 
@@ -59,7 +59,11 @@ export function extractCallbackData(callback: DarajaCallback): ExtractedCallback
     const metadataMap = new Map<string, string>();
 
     metadata.forEach((item) => {
-      metadataMap.set(item.Key, item.Value);
+      // Only add items that have both Name and Value
+      // Some items like Balance may not have a Value
+      if (item.Name && item.Value !== undefined && item.Value !== null) {
+        metadataMap.set(item.Name, String(item.Value));
+      }
     });
 
     // Extract specific fields from metadata
@@ -68,10 +72,13 @@ export function extractCallbackData(callback: DarajaCallback): ExtractedCallback
     const amount = metadataMap.get('Amount');
     const phoneNumber = metadataMap.get('PhoneNumber');
 
+    // Balance field is optional and may be empty
+    // Daraja sends ResultCode as a number (0) not a string ("0")
+
     return {
-      merchantRequestId: MerchantRequestID,
-      checkoutRequestId: CheckoutRequestID,
-      resultCode: ResultCode,
+      merchantRequestId: String(MerchantRequestID),
+      checkoutRequestId: String(CheckoutRequestID),
+      resultCode: String(ResultCode),
       resultDescription: ResultDesc || '',
       mpesaReceiptNumber,
       transactionDate,
@@ -101,8 +108,8 @@ export function extractCallbackData(callback: DarajaCallback): ExtractedCallback
  * @param resultCode - Result code from callback
  * @returns Payment status
  */
-export function determinePaymentStatus(resultCode: string): PaymentStatus {
-  switch (resultCode) {
+export function determinePaymentStatus(resultCode: string | number): PaymentStatus {
+  switch (String(resultCode)) {
     case '0':
       return PaymentStatus.SUCCESS;
     case '1032':
@@ -139,9 +146,12 @@ export function isValidCallback(callback: any): callback is DarajaCallback {
   const stkCallback = callback.Body.stkCallback;
 
   if (
-    !stkCallback.MerchantRequestID ||
-    !stkCallback.CheckoutRequestID ||
-    !stkCallback.ResultCode
+    stkCallback.MerchantRequestID === undefined ||
+    stkCallback.MerchantRequestID === null ||
+    stkCallback.CheckoutRequestID === undefined ||
+    stkCallback.CheckoutRequestID === null ||
+    stkCallback.ResultCode === undefined ||
+    stkCallback.ResultCode === null
   ) {
     return false;
   }
@@ -151,28 +161,35 @@ export function isValidCallback(callback: any): callback is DarajaCallback {
 
 /**
  * Format transaction date from Daraja format
- * 
- * Daraja sends dates in format: YYYYMMDDHHmmss
+ *
+ * Daraja sends dates in format: YYYYMMDDHHmmss (as string or number)
  * We need to convert to ISO 8601 format for database
- * 
- * @param darajaDate - Date string from Daraja
+ *
+ * @param darajaDate - Date string or number from Daraja
  * @returns ISO 8601 date string or null if invalid
  */
-export function formatTransactionDate(darajaDate: string | undefined): string | null {
-  if (!darajaDate || darajaDate.length !== 14) {
+export function formatTransactionDate(darajaDate: string | number | undefined): string | null {
+  if (!darajaDate) {
+    return null;
+  }
+
+  // Convert to string if it's a number
+  const dateStr = typeof darajaDate === 'number' ? darajaDate.toString() : darajaDate;
+
+  if (dateStr.length !== 14) {
     return null;
   }
 
   try {
-    const year = darajaDate.substring(0, 4);
-    const month = darajaDate.substring(4, 6);
-    const day = darajaDate.substring(6, 8);
-    const hours = darajaDate.substring(8, 10);
-    const minutes = darajaDate.substring(10, 12);
-    const seconds = darajaDate.substring(12, 14);
+    const year = dateStr.substring(0, 4);
+    const month = dateStr.substring(4, 6);
+    const day = dateStr.substring(6, 8);
+    const hours = dateStr.substring(8, 10);
+    const minutes = dateStr.substring(10, 12);
+    const seconds = dateStr.substring(12, 14);
 
     const date = new Date(`${year}-${month}-${day}T${hours}:${minutes}:${seconds}Z`);
-    
+
     if (isNaN(date.getTime())) {
       return null;
     }

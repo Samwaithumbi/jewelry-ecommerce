@@ -9,6 +9,8 @@ import { useState, useTransition } from "react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { addToWishlist } from "@/app/actions/wishlist/add-to-wishlist"
+import { addToCart } from "@/app/actions/cart/add-to-cart"
+import { CartItem } from "@/types/cart"
 
 interface ProductCardProps {
   product: {
@@ -30,6 +32,7 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const router = useRouter()
   const [isWishlisted, setIsWishlisted] = useState(false)
+  const [isAddingToCart, setIsAddingToCart] = useState(false)
   const [isPending, startTransition] = useTransition()
   
   const price = product.basePriceCents / 100
@@ -47,6 +50,29 @@ export function ProductCard({ product }: ProductCardProps) {
         if (error instanceof Error && error.message.includes('logged in')) {
           router.push('/sign_in?callbackUrl=/products')
         }
+      }
+    })
+  }
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsAddingToCart(true)
+    startTransition(async () => {
+      try {
+        const cartItem: CartItem = {
+          productId: product.id,
+          name: product.name,
+          image: imageUrl,
+          priceAtAdd: product.basePriceCents,
+          qty: 1,
+        }
+        await addToCart(cartItem)
+        // Dispatch event to update cart count
+        window.dispatchEvent(new Event('cart-update'))
+      } catch (error) {
+        console.error('Failed to add to cart:', error)
+      } finally {
+        setIsAddingToCart(false)
       }
     })
   }
@@ -88,6 +114,7 @@ export function ProductCard({ product }: ProductCardProps) {
             src={imageUrl}
             alt={product.images?.[0]?.altText || product.name}
             fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
@@ -99,8 +126,16 @@ export function ProductCard({ product }: ProductCardProps) {
       <div className="flex flex-1 flex-col gap-1.5 pt-2">
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground capitalize font-medium tracking-wide">{product.category}</span>
-          <button className="flex size-6 items-center justify-center rounded-full border border-primary/20 text-[#B88E2F] transition-colors hover:bg-[#B88E2F]/10">
-            <Plus className="size-3.5" />
+          <button 
+            onClick={handleAddToCart}
+            disabled={isAddingToCart || isPending}
+            className="flex size-6 items-center justify-center rounded-full border border-primary/20 text-[#B88E2F] transition-colors hover:bg-[#B88E2F]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAddingToCart ? (
+              <div className="size-3.5 animate-spin rounded-full border-2 border-[#B88E2F] border-t-transparent" />
+            ) : (
+              <Plus className="size-3.5" />
+            )}
           </button>
         </div>
 

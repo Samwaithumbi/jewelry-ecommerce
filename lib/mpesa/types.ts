@@ -76,8 +76,8 @@ export interface CallbackResultBody {
  * Callback item structure
  */
 export interface CallbackItem {
-  Key: string;
-  Value: string;
+  Name: string;
+  Value?: string | null;
 }
 
 /**
@@ -156,7 +156,7 @@ export interface ExtractedCallbackData {
   resultCode: string;
   resultDescription: string;
   mpesaReceiptNumber?: string;
-  transactionDate?: string;
+  transactionDate?: string | number;
   amount?: number;
   phoneNumber?: string;
 }

@@ -44,21 +44,74 @@ export function MpesaPaymentForm({
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+
+  // Check payment status on mount if paymentId is provided
+  useEffect(() => {
+    if (paymentId && status === 'idle') {
+      checkInitialPaymentStatus(paymentId);
+    }
+  }, [paymentId]);
+
+  const checkInitialPaymentStatus = async (pid: string) => {
+    try {
+      const response = await fetch(`/api/payments/${pid}`);
+      const data = await response.json();
+
+      if (data.success && data.status === 'success') {
+        setStatus('success');
+        onSuccess?.(pid);
+      } else if (data.success && (data.status === 'failed' || data.status === 'cancelled')) {
+        setStatus(data.status);
+        setError(data.error || 'Payment failed');
+        onFailure?.(data.error);
+      }
+    } catch (err) {
+      console.error('Initial status check error:', err);
+    }
+  };
 
   // Poll for payment status when pending
   useEffect(() => {
     if (status !== 'pending' || !paymentId) return;
 
+    let countdownInterval: NodeJS.Timeout;
+
+    // Countdown timer
+    countdownInterval = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          // When timer reaches 0, mark payment as failed
+          setStatus('failed');
+          setError('Payment expired. Please try again.');
+          onFailure?.('Payment expired');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
     const pollInterval = setInterval(async () => {
       try {
         const response = await fetch(`/api/payments/${paymentId}`);
         const data = await response.json();
+        // #region agent log
+        fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'E',location:'components/checkout/MpesaPaymentForm.tsx:poll',message:'Payment status poll',data:{httpStatus:response.status,success:data.success,status:data.status,error:data.error,paymentId},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
 
         if (data.success) {
           if (data.status === 'success') {
             setStatus('success');
             onSuccess?.(paymentId);
             clearInterval(pollInterval);
+            clearInterval(countdownInterval);
+          } else if (data.status === 'cancelled' || data.status === 'failed') {
+            setStatus(data.status);
+            setError(data.error || 'Payment failed. Please try again.');
+            onFailure?.(data.error || 'Payment failed');
+            clearInterval(pollInterval);
+            clearInterval(countdownInterval);
           }
         } else {
           // Handle failed/cancelled payments from API
@@ -67,6 +120,7 @@ export function MpesaPaymentForm({
             setError(data.error || 'Payment failed. Please try again.');
             onFailure?.(data.error || 'Payment failed');
             clearInterval(pollInterval);
+            clearInterval(countdownInterval);
           }
         }
       } catch (err) {
@@ -81,24 +135,14 @@ export function MpesaPaymentForm({
         setError('Payment timed out. Please try again.');
         onFailure?.('Payment timed out');
         clearInterval(pollInterval);
+        clearInterval(countdownInterval);
       }
     }, 15 * 60 * 1000);
-
-    // Countdown timer
-    const countdown = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(countdown);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
 
     return () => {
       clearInterval(pollInterval);
       clearTimeout(timeout);
-      clearInterval(countdown);
+      clearInterval(countdownInterval);
     };
   }, [status, paymentId, onSuccess, onFailure]);
 
@@ -135,6 +179,10 @@ export function MpesaPaymentForm({
 
       const data = await response.json();
 
+      // #region agent log
+      fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'D',location:'components/checkout/MpesaPaymentForm.tsx:handleInitiatePayment',message:'STK client response',data:{httpStatus:response.status,success:data.success,error:data.error,paymentId:data.paymentId},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+
       if (data.success) {
         setPaymentId(data.paymentId);
         setStatus('pending');
@@ -155,6 +203,35 @@ export function MpesaPaymentForm({
     setStatus('idle');
     setError(null);
     setPaymentId(null);
+  };
+
+  const handleCheckStatus = async () => {
+    if (!paymentId) return;
+    setIsCheckingStatus(true);
+    try {
+      const response = await fetch(`/api/payments/${paymentId}`);
+      const data = await response.json();
+
+      if (data.success) {
+        if (data.status === 'success') {
+          setStatus('success');
+          onSuccess?.(paymentId);
+        } else if (data.status === 'failed' || data.status === 'cancelled') {
+          setStatus(data.status);
+          setError(data.error || 'Payment failed');
+          onFailure?.(data.error);
+        } else {
+          setError(`Payment status: ${data.status}`);
+        }
+      } else {
+        setError(data.error || 'Failed to check status');
+      }
+    } catch (err) {
+      console.error('Check status error:', err);
+      setError('Failed to check payment status');
+    } finally {
+      setIsCheckingStatus(false);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -261,6 +338,26 @@ export function MpesaPaymentForm({
               <AlertCircle className="h-4 w-4" />
               Do not close this page
             </div>
+
+            <Button
+              onClick={handleCheckStatus}
+              disabled={isCheckingStatus}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              {isCheckingStatus ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Checking...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Check Payment Status
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>

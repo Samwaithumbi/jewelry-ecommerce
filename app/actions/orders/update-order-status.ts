@@ -14,10 +14,13 @@ import {
   OrderStatus 
 } from '@/lib/order-status';
 import { 
-  sendOrderConfirmationEmail, 
+  sendOrderConfirmationEmailAsync,
+  sendPaymentFailedEmailAsync,
   sendOrderShippedEmail, 
   sendOrderDeliveredEmail 
 } from '@/lib/email';
+import { getCustomerData } from '@/lib/customer-data';
+import { getOrderItems } from '@/lib/order-items';
 
 interface UpdateOrderStatusParams {
   orderId: string;
@@ -85,71 +88,47 @@ export async function updateOrderStatus(params: UpdateOrderStatusParams) {
       .set(updateData)
       .where(eq(orders.id, orderId));
 
-    // Get user email for notifications
-    let userEmail = '';
-    let userName = 'Customer';
-
-    if (currentOrder.userId) {
-      const userData = await db
-        .select({
-          email: users.email,
-          name: users.name,
-        })
-        .from(users)
-        .where(eq(users.id, currentOrder.userId))
-        .limit(1);
-
-      if (userData && userData.length > 0) {
-        userEmail = userData[0].email;
-        userName = userData[0].name || 'Customer';
-      }
-    } else {
-      // Get email from shipping address for guest orders
-      const address = currentOrder.shippingAddress as any;
-      userEmail = address?.email || '';
-      userName = address?.name || 'Customer';
-    }
+    // Get customer data for notifications
+    const customer = await getCustomerData(orderId);
+    const items = await getOrderItems(orderId);
 
     // Trigger email notifications based on status
-    if (newStatus === 'confirmed' && userEmail) {
-      // Send confirmation email
-      // Note: You'll need to fetch order items for this
-      await sendOrderConfirmationEmail({
-        customerName: userName,
-        customerEmail: userEmail,
-        orderNumber: currentOrder.orderNumber,
-        orderDate: currentOrder.createdAt.toISOString().split('T')[0],
-        items: [], // TODO: Fetch order items
-        subtotal: (currentOrder.subtotalCents / 100).toFixed(2),
-        shipping: ((currentOrder.shippingCents || 0) / 100).toFixed(2),
-        tax: ((currentOrder.taxCents || 0) / 100).toFixed(2),
-        total: (currentOrder.totalCents / 100).toFixed(2),
-        shippingAddress: currentOrder.shippingAddress as any,
+    if (newStatus === 'confirmed' && customer.email) {
+      // Send confirmation email asynchronously with idempotency check
+      sendOrderConfirmationEmailAsync(orderId).catch(err => {
+        console.error('Failed to send confirmation email on admin update:', err);
       });
     }
 
-    if (newStatus === 'shipped' && userEmail && trackingNumber) {
+    if (newStatus === 'cancelled' && customer.email) {
+      // Send cancellation / failure email asynchronously
+      sendPaymentFailedEmailAsync(orderId, 'Order was cancelled by store administrator').catch(err => {
+        console.error('Failed to send cancellation email on admin update:', err);
+      });
+    }
+
+    if (newStatus === 'shipped' && customer.email && trackingNumber) {
       // Send shipped email
       await sendOrderShippedEmail({
-        customerName: userName,
-        customerEmail: userEmail,
+        customerName: customer.name,
+        customerEmail: customer.email,
         orderNumber: currentOrder.orderNumber,
         trackingNumber,
         carrier: carrier || 'Carrier',
-        trackingUrl: `https://track.example.com/${trackingNumber}`, // Replace with actual tracking URL
+        trackingUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://yourstore.com'}/account/orders?tracking=${trackingNumber}`,
         estimatedDelivery: estimatedDelivery || '3-5 business days',
-        items: [], // TODO: Fetch order items
+        items,
       });
     }
 
-    if (newStatus === 'delivered' && userEmail) {
+    if (newStatus === 'delivered' && customer.email) {
       // Send delivered email
       await sendOrderDeliveredEmail({
-        customerName: userName,
-        customerEmail: userEmail,
+        customerName: customer.name,
+        customerEmail: customer.email,
         orderNumber: currentOrder.orderNumber,
         deliveryDate: new Date().toISOString().split('T')[0],
-        items: [], // TODO: Fetch order items
+        items,
       });
     }
 

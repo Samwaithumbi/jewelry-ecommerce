@@ -118,7 +118,7 @@ export function OrderConfirmedEmail({
 
             {/* CTA */}
             <Section style={ctaSection}>
-              <Button style={button} href="https://yourstore.com/account/orders">
+              <Button style={button} href={`${process.env.NEXT_PUBLIC_APP_URL || 'https://yourstore.com'}/account/orders`}>
                 View Your Order
               </Button>
             </Section>
@@ -139,7 +139,7 @@ export function OrderConfirmedEmail({
             <Text style={footerText}>
               © 2026 Luxe Jewelry. All rights reserved.
             </Text>
-            <Link href="https://yourstore.com" style={footerLink}>
+            <Link href={`${process.env.NEXT_PUBLIC_APP_URL || 'https://yourstore.com'}`} style={footerLink}>
               Visit our store
             </Link>
           </Section>
