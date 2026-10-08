@@ -155,9 +155,7 @@ import {
     stoneCut:           stoneCutEnum("stone_cut"),
     stoneColor:         varchar("stone_color", { length: 5 }),
     stoneClarity:       varchar("stone_clarity", { length: 5 }),
-    stockQty:           integer("stock_qty").default(0).notNull(),
-    lowStockThreshold:  integer("low_stock_threshold").default(3),
-    priceAdjustCents:   integer("price_adjust_cents").default(0),
+priceAdjustCents:   integer("price_adjust_cents").default(0),
     active:             boolean("active").default(true).notNull(),
   }, (t: any) => ({
     productIdx: index("variants_product_idx").on(t.productId),

@@ -165,5 +165,3 @@ export async function updatePaymentStatus(
     };
   }
 }
-
-export default updatePaymentStatus;

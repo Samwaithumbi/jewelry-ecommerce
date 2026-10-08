@@ -10,6 +10,14 @@ export const productSchema = z.object({
   weightGrams: z.coerce.number().min(0),
   category: z.enum(["ring", "necklace", "bracelet", "earring", "pendant", "bangle", "set"]),
   imageUrl: z.string().optional(),
+  // Variant fields
+  sku: z.string().optional(),
+  size: z.string().optional(),
+  priceAdjustCents: z.coerce.number().optional(),
+  // Inventory fields
+  location: z.string().optional(),
+  initialStock: z.coerce.number().optional(),
+  reorderPoint: z.coerce.number().optional(),
 });
 
 export type ProductFormValues = z.infer<typeof productSchema>;

@@ -121,13 +121,23 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Import email functions
+    const { sendOrderShippedEmail, sendOrderDeliveredEmail } = await import('@/lib/email');
+    const { getCustomerData } = await import('@/lib/customer-data');
+    const { getTrackingUrl } = await import('@/lib/tracking');
+
     // Update each order
     const results: any[] = [];
     for (const orderId of orderIds) {
       try {
         // Get current order
         const currentOrders = await db
-          .select({ status: orders.status })
+          .select({ 
+            status: orders.status,
+            orderNumber: orders.orderNumber,
+            emailShippedSent: orders.emailShippedSent,
+            emailDeliveredSent: orders.emailDeliveredSent,
+          })
           .from(orders)
           .where(eq(orders.id, orderId))
           .limit(1);
@@ -168,6 +178,63 @@ export async function PATCH(request: NextRequest) {
           .update(orders)
           .set(updateData)
           .where(eq(orders.id, orderId));
+
+        // Send appropriate email with idempotency check
+        if (status === 'shipped' && !currentOrders[0].emailShippedSent) {
+          try {
+            const customer = await getCustomerData(orderId);
+            const trackingUrl = trackingNumber && carrier 
+              ? getTrackingUrl(carrier, trackingNumber)
+              : '';
+
+            const result = await sendOrderShippedEmail({
+              customerName: customer.name,
+              customerEmail: customer.email,
+              orderNumber: currentOrders[0].orderNumber,
+              trackingNumber: trackingNumber || '',
+              carrier: carrier || '',
+              trackingUrl,
+              estimatedDelivery: estimatedDelivery || 'Within 3-5 business days',
+              items: [], // Will be fetched by template if needed
+            });
+
+            if (result.success) {
+              // Update the email sent timestamp
+              await db
+                .update(orders)
+                .set({ emailShippedSent: new Date() })
+                .where(eq(orders.id, orderId));
+            }
+          } catch (emailError) {
+            console.error(`Failed to send shipped email for order ${orderId}:`, emailError);
+            // Don't fail the order update if email fails
+          }
+        }
+
+        if (status === 'delivered' && !currentOrders[0].emailDeliveredSent) {
+          try {
+            const customer = await getCustomerData(orderId);
+            
+            const result = await sendOrderDeliveredEmail({
+              customerName: customer.name,
+              customerEmail: customer.email,
+              orderNumber: currentOrders[0].orderNumber,
+              deliveryDate: new Date().toISOString().split('T')[0],
+              items: [], // Will be fetched by template if needed
+            });
+
+            if (result.success) {
+              // Update the email sent timestamp
+              await db
+                .update(orders)
+                .set({ emailDeliveredSent: new Date() })
+                .where(eq(orders.id, orderId));
+            }
+          } catch (emailError) {
+            console.error(`Failed to send delivered email for order ${orderId}:`, emailError);
+            // Don't fail the order update if email fails
+          }
+        }
 
         results.push({ orderId, success: true });
       } catch (error) {

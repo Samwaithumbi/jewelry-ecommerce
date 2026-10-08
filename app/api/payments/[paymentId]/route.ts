@@ -15,6 +15,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPaymentStatusForClient } from '@/lib/mpesa/db';
 import { PaymentNotFoundError, toErrorResponse } from '@/lib/mpesa/errors';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 /**
  * GET handler for payment status
@@ -26,10 +28,10 @@ export async function GET(
   try {
     const { paymentId } = await params;
 
-    // Note: In a real implementation, you'd get userId from session
-    // const session = await getServerSession(authOptions);
-    // const userId = session?.user?.id;
-    const userId = undefined; // TODO: Implement session-based auth
+    // Get user ID from session (optional - payment can be viewed by anyone without auth)
+    // but authorization check will fail if user tries to access someone else's payment
+    const session = await getServerSession(authOptions);
+    const userId = (session?.user as any)?.id;
 
     // Get payment status
     const paymentStatus = await getPaymentStatusForClient(paymentId, userId);

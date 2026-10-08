@@ -25,10 +25,10 @@ const navMain = [
   { title: "Overview", url: "/admin-dashboard", icon: LayoutDashboard },
   { title: "Orders", url: "/admin-dashboard/orders", icon: ShoppingCart },
   { title: "Products", url: "/admin-dashboard/products", icon: Package },
-  { title: "Catalog", url: "/admin-dashboard/catalog", icon: Package },
   { title: "Customers", url: "/admin-dashboard/customers", icon: Users },
+  { title: "Inventory", url: "/admin-dashboard/inventory", icon: Package },
   { title: "AI Stylist", url: "/admin-dashboard/ai-stylist", icon: Package },
-   { title: "Analytics", url: "/admin-dashboard/analytics", icon: BarChart3 },
+  { title: "Analytics", url: "/admin-dashboard/analytics", icon: BarChart3 },
   { title: "Settings", url: "/admin-dashboard/settings", icon: Settings },
 ]
 
@@ -61,7 +61,7 @@ export default function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        
+
       </SidebarContent>
 
       <SidebarFooter>

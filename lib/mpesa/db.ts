@@ -23,6 +23,12 @@ import {
   DuplicateCallbackError,
 } from './errors';
 import { formatTransactionDate, determinePaymentStatus } from './callback';
+import { 
+  confirmReservation, 
+  releaseReservation, 
+  InvalidReservationStateError,
+  ReservationNotFoundError 
+} from '../inventory/service';
 
 /**
  * Create a new payment record
@@ -184,7 +190,8 @@ export async function updatePaymentWithStkPushIdentifiers(
  * 2. Checks if payment is already successful (idempotency)
  * 3. Updates payment status
  * 4. Updates order status if payment successful
- * 5. Uses database transaction for consistency
+ * 5. Confirms or releases inventory reservation based on payment outcome
+ * 6. Uses database transaction for consistency
  * 
  * @param callbackData - Extracted callback data
  * @returns Updated payment record
@@ -207,33 +214,52 @@ export async function processPaymentCallback(callbackData: ExtractedCallbackData
   // Determine payment status (ResultCode may be number 0 or string "0")
   const status = determinePaymentStatus(callbackData.resultCode);
 
-  // #region agent log
-  fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'A',location:'lib/mpesa/db.ts:processPaymentCallback',message:'Status derived from resultCode',data:{paymentId:payment.id,orderId:payment.orderId,resultCode:callbackData.resultCode,resultCodeType:typeof callbackData.resultCode,derivedStatus:status,strictEqZeroString:callbackData.resultCode==='0'},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+    // #endregion
 
-  // Format transaction date
-  const transactionDate = formatTransactionDate(callbackData.transactionDate);
+    // Format transaction date
+    const transactionDate = formatTransactionDate(callbackData.transactionDate);
 
-  // Use database transaction for atomic updates
-  // Note: Neon HTTP doesn't support transactions, so we'll use sequential updates
-  // For production with transaction support, use: db.transaction(async (tx) => { ... })
+    // Use database transaction for atomic updates
+    // Note: Neon HTTP doesn't support transactions, so we'll use sequential updates
+    // For production with transaction support, use: db.transaction(async (tx) => { ... })
 
-  // Update payment
-  const updatedPayment = await db
-    .update(payments)
-    .set({
-      status,
-      mpesaReceiptNumber: callbackData.mpesaReceiptNumber,
-      resultCode: String(callbackData.resultCode),
-      resultDescription: callbackData.resultDescription,
-      transactionDate: transactionDate ? new Date(transactionDate) : null,
-      updatedAt: new Date(),
-    })
-    .where(eq(payments.id, payment.id))
-    .returning();
+    // Update payment
+    const updatedPayment = await db
+      .update(payments)
+      .set({
+        status,
+        mpesaReceiptNumber: callbackData.mpesaReceiptNumber,
+        resultCode: String(callbackData.resultCode),
+        resultDescription: callbackData.resultDescription,
+        transactionDate: transactionDate ? new Date(transactionDate) : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(payments.id, payment.id))
+      .returning();
 
-  // If payment successful, update order status
+  // If payment successful, confirm reservation and update order status
   if (status === PaymentStatus.SUCCESS) {
+    // Find and confirm the inventory reservation for this order
+    const { inventoryReservations } = await import('../../drizzle/src/db/inventory-schema');
+    const reservation = await db.query.inventoryReservations.findFirst({
+      where: eq(inventoryReservations.orderId, payment.orderId),
+    });
+
+    if (reservation) {
+      try {
+        await confirmReservation(reservation.id);
+        console.log(`Confirmed reservation ${reservation.id} for order ${payment.orderId}`);
+      } catch (error) {
+        if (error instanceof InvalidReservationStateError || error instanceof ReservationNotFoundError) {
+          console.warn(`Could not confirm reservation ${reservation.id}:`, error.message);
+          // Continue with order confirmation even if reservation is already processed
+        } else {
+          console.error(`Error confirming reservation ${reservation.id}:`, error);
+          throw error;
+        }
+      }
+    }
+
     await db
       .update(orders)
       .set({
@@ -248,8 +274,29 @@ export async function processPaymentCallback(callbackData: ExtractedCallbackData
     });
   }
 
-  // If payment failed, update order status and send failure email
+  // If payment failed, release reservation and update order status
   if (status === PaymentStatus.FAILED || status === PaymentStatus.CANCELLED) {
+    // Find and release the inventory reservation for this order
+    const { inventoryReservations } = await import('../../drizzle/src/db/inventory-schema');
+    const reservation = await db.query.inventoryReservations.findFirst({
+      where: eq(inventoryReservations.orderId, payment.orderId),
+    });
+
+    if (reservation) {
+      try {
+        await releaseReservation(reservation.id);
+        console.log(`Released reservation ${reservation.id} for order ${payment.orderId}`);
+      } catch (error) {
+        if (error instanceof InvalidReservationStateError || error instanceof ReservationNotFoundError) {
+          console.warn(`Could not release reservation ${reservation.id}:`, error.message);
+          // Continue with order cancellation even if reservation is already processed
+        } else {
+          console.error(`Error releasing reservation ${reservation.id}:`, error);
+          throw error;
+        }
+      }
+    }
+
     await db
       .update(orders)
       .set({
@@ -276,10 +323,10 @@ export async function processPaymentCallback(callbackData: ExtractedCallbackData
  * Sensitive information like raw callback data is not exposed.
  * 
  * @param paymentId - Payment ID
- * @param userId - User ID (for authorization)
+ * @param userId - User ID (for authorization, optional)
  * @returns Payment status response
  * @throws PaymentNotFoundError if payment not found
- * @throws Error if unauthorized
+ * @throws Error if userId provided but doesn't match order owner
  */
 export async function getPaymentStatusForClient(paymentId: string, userId?: string) {
   const payment = await getPaymentById(paymentId);
@@ -288,13 +335,16 @@ export async function getPaymentStatusForClient(paymentId: string, userId?: stri
     throw new PaymentNotFoundError(paymentId);
   }
 
-  // Authorization check: ensure user owns the payment
+  // Authorization check: if userId provided, ensure user owns the payment
+  // This allows unauthenticated guests to check payment status during checkout
   if (userId) {
     const order = await getOrderById(payment.orderId);
-    if (order && order.userId !== userId) {
+    if (order && order.userId && order.userId !== userId) {
+      // User ID provided but doesn't match order owner
       throw new Error('Unauthorized');
     }
   }
+  // If no userId provided, allow access (guest checkout or unauthenticated polling)
 
   // Check if payment has expired
   let status = payment.status;

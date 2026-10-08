@@ -57,6 +57,14 @@ export function ProductForm({ initialData }: ProductFormProps) {
       weightGrams: 0,
       category: "ring",
       imageUrl: "",
+      // Variant fields
+      sku: "",
+      size: "",
+      priceAdjustCents: 0,
+      // Inventory fields
+      location: "MAIN",
+      initialStock: 0,
+      reorderPoint: 3,
     },
   });
 
@@ -77,8 +85,11 @@ export function ProductForm({ initialData }: ProductFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 max-w-2xl bg-white p-8 rounded-2xl border border-slate-100 shadow-sm">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 max-w-4xl bg-white p-8 rounded-2xl border border-slate-100 shadow-sm">
+      {/* Product Information */}
       <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">Product Information</h3>
+        
         <div>
           <Label>Product Image</Label>
           <div className="mt-2">
@@ -95,12 +106,12 @@ export function ProductForm({ initialData }: ProductFormProps) {
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Name *</Label>
-            <Input {...register("name")} placeholder="e.g. Lumina Diamond Solitaire" className="rounded-xl border-slate-200" />
+            <Input {...register("name")} placeholder="e.g. 18K Gold Ring" className="rounded-xl border-slate-200" />
             {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
           </div>
           <div className="space-y-2">
             <Label>Slug *</Label>
-            <Input {...register("slug")} placeholder="e.g. lumina-diamond-solitaire" className="rounded-xl border-slate-200" />
+            <Input {...register("slug")} placeholder="e.g. 18k-gold-ring" className="rounded-xl border-slate-200" />
             {errors.slug && <p className="text-sm text-red-500">{errors.slug.message}</p>}
           </div>
         </div>
@@ -130,7 +141,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label>Price (Cents) *</Label>
+            <Label>Base Price (KSh) *</Label>
             <Input type="number" {...register("basePriceCents")} className="rounded-xl border-slate-200" />
             {errors.basePriceCents && <p className="text-sm text-red-500">{errors.basePriceCents.message}</p>}
           </div>
@@ -193,6 +204,51 @@ export function ProductForm({ initialData }: ProductFormProps) {
         <div className="space-y-2">
           <Label>Description</Label>
           <Textarea {...register("description")} className="rounded-xl border-slate-200 min-h-[120px]" />
+        </div>
+      </div>
+
+      {/* Variant Information */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">Variant</h3>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>SKU *</Label>
+            <Input {...register("sku")} placeholder="e.g. RING-18K-001" className="rounded-xl border-slate-200 uppercase" />
+            {errors.sku && <p className="text-sm text-red-500">{errors.sku?.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label>Size (optional)</Label>
+            <Input {...register("size")} placeholder="e.g. 7" className="rounded-xl border-slate-200" />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Price Adjustment (KSh)</Label>
+          <Input type="number" {...register("priceAdjustCents")} placeholder="0" className="rounded-xl border-slate-200" />
+          <p className="text-xs text-slate-500">Additional amount to add/subtract from base price</p>
+        </div>
+      </div>
+
+      {/* Inventory Information */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">Inventory</h3>
+        
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Location</Label>
+            <Input {...register("location")} placeholder="MAIN" className="rounded-xl border-slate-200" />
+            <p className="text-xs text-slate-500">Defaults to MAIN warehouse</p>
+          </div>
+          <div className="space-y-2">
+            <Label>Initial Stock *</Label>
+            <Input type="number" {...register("initialStock")} placeholder="0" className="rounded-xl border-slate-200" />
+          </div>
+          <div className="space-y-2">
+            <Label>Reorder Point *</Label>
+            <Input type="number" {...register("reorderPoint")} placeholder="3" className="rounded-xl border-slate-200" />
+            <p className="text-xs text-slate-500">Alert when stock falls below</p>
+          </div>
         </div>
       </div>
 

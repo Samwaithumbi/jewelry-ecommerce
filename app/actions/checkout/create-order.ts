@@ -4,13 +4,18 @@
  * Server Action: Create Order
  * 
  * This server action creates an order from the cart items.
- * It calculates totals and creates the order record in the database.
+ * It calculates totals, reserves inventory, and creates the order record in the database.
+ * 
+ * INTEGRATION: This now integrates with the inventory system to reserve stock
+ * before the order is created and payment is initiated.
  */
 
 import { db } from '@/lib/db';
 import { orders, orderItems } from '@/drizzle/src/db/schema';
+import { eq } from 'drizzle-orm';
 import { getCart } from '@/app/actions/cart/get-cart';
 import { Cart } from '@/types/cart';
+import { reserveInventory, InsufficientStockError } from '@/lib/inventory/service';
 
 interface ShippingAddress {
   fullName: string;
@@ -107,14 +112,63 @@ export async function createOrderFromCart(
       });
     }
 
+    // Reserve inventory for the order
+    // This is critical to prevent overselling
+    const reservationItems = cart.items
+      .filter(item => item.variantId) // Only reserve items with variants
+      .map(item => ({
+        variantId: item.variantId!,
+        quantity: item.qty,
+      }));
+
+    let reservationId: string | null = null;
+
+    if (reservationItems.length > 0) {
+      try {
+        // Reserve inventory for 15 minutes (same as payment expiry)
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        
+        reservationId = await reserveInventory({
+          orderId: createdOrder.id,
+          userId,
+          items: reservationItems,
+          expiresAt,
+        });
+
+        console.log(`Reserved inventory for order ${createdOrder.id}, reservation ${reservationId}`);
+      } catch (error) {
+        if (error instanceof InsufficientStockError) {
+          // If stock is insufficient, cancel the order
+          await db.delete(orders).where(eq(orders.id, createdOrder.id));
+          await db.delete(orderItems).where(eq(orderItems.orderId, createdOrder.id));
+          
+          return {
+            success: false,
+            error: `Insufficient stock: ${error.message}`,
+          };
+        }
+        
+        // For other errors, log but continue (order created but inventory not reserved)
+        console.error('Failed to reserve inventory:', error);
+      }
+    }
+
     // Clear cart after order creation
-    // TODO: Implement clear cart functionality
+    const { clearCart } = await import('@/app/actions/cart/clear-cart');
+    try {
+      await clearCart();
+      console.log(`Cleared cart after order creation: ${createdOrder.id}`);
+    } catch (error) {
+      console.error('Failed to clear cart:', error);
+      // Don't throw - order is still created, cart clearing is nice-to-have
+    }
 
     return {
       success: true,
       orderId: createdOrder.id,
       orderNumber: createdOrder.orderNumber,
       totalCents: createdOrder.totalCents,
+      reservationId,
     };
   } catch (error) {
     console.error('Order creation error:', error);
