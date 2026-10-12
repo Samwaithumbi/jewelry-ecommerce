@@ -1,10 +1,10 @@
-import { getInventoryItems } from "@/app/actions/inventory";
+import { getInventory } from "@/app/actions/admin/get-inventory";
 import { InventoryClient } from "./inventory-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
-  const items = await getInventoryItems();
+  const inventoryData = await getInventory();
 
-  return <InventoryClient initialItems={items} />;
+  return <InventoryClient initialData={inventoryData} />;
 }

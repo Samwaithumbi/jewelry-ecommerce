@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Download, MoreHorizontal } from "lucide-react"
+import React from "react"
+import { useRouter } from "next/navigation"
+import { Search, Download, MoreHorizontal, ChevronDown, ChevronUp, X } from "lucide-react"
 import { getCustomers } from "@/app/actions/admin/get-customers"
 
 const tierStyle: Record<string, string> = {
@@ -16,19 +18,39 @@ const statusStyle: Record<string, string> = {
   Inactive: "bg-gray-100 text-gray-600",
 }
 
+const orderStatusStyle: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-700",
+  confirmed: "bg-blue-100 text-blue-700",
+  processing: "bg-purple-100 text-purple-700",
+  shipped: "bg-indigo-100 text-indigo-700",
+  delivered: "bg-emerald-100 text-emerald-700",
+  cancelled: "bg-red-100 text-red-700",
+  refunded: "bg-gray-100 text-gray-600",
+}
+
 export default function CustomersPage() {
+  const router = useRouter()
   const [customers, setCustomers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTier, setSelectedTier] = useState("All")
+  const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchCustomers() {
       try {
+        console.log("Client: Starting fetchCustomers...")
         const data = await getCustomers()
+        console.log("Client: Fetched customers data:", data)
+        console.log("Client: Data type:", typeof data)
+        console.log("Client: Data is array?", Array.isArray(data))
+        console.log("Client: Data length:", data?.length)
+        console.log("Client: Total revenue from fetched data:", data.reduce((sum, c) => sum + c.totalSpent, 0))
         setCustomers(data)
+        console.log("Client: State updated, customers:", data.length)
+
       } catch (error) {
-        console.error("Failed to fetch customers:", error)
+        console.error("Client: Failed to fetch customers:", error)
       } finally {
         setLoading(false)
       }
@@ -51,8 +73,23 @@ export default function CustomersPage() {
   const diamondMembers = customers.filter((c) => c.tier === "Diamond").length
   const activeCustomers = customers.filter((c) => c.status === "Active").length
 
+  
+
   const formatCurrency = (cents: number) => {
     return `$${(cents / 100).toLocaleString()}`
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
+  }
+
+  const toggleExpand = (customerId: string) => {
+    setExpandedCustomerId(expandedCustomerId === customerId ? null : customerId)
   }
 
   return (
@@ -77,7 +114,12 @@ export default function CustomersPage() {
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
               Total Customer Revenue
             </p>
-            <p className="mt-2 text-2xl font-bold">${(totalRevenue / 1000).toFixed(1)}k</p>
+            <p className="mt-2 text-2xl font-bold">
+              {totalRevenue >= 1000
+                ? `Ksh${(totalRevenue / 1000).toFixed(1)}k`
+                : `Ksh${(totalRevenue / 100).toFixed(2)}`
+              }
+            </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -133,7 +175,7 @@ export default function CustomersPage() {
                   <th className="px-6 py-3 text-left font-medium text-muted-foreground">Contact</th>
                   <th className="px-6 py-3 text-left font-medium text-muted-foreground">Tier</th>
                   <th className="px-6 py-3 text-left font-medium text-muted-foreground">Orders</th>
-                  <th className="px-6 py-3 text-left font-medium text-muted-foreground">Total Spent</th>
+                  <th className="px-6 py-3 text-left font-medium text-muted-foreground">Total Spent(Ksh)</th>
                   <th className="px-6 py-3 text-left font-medium text-muted-foreground">Joined</th>
                   <th className="px-6 py-3 text-left font-medium text-muted-foreground">Status</th>
                   <th className="px-6 py-3"></th>
@@ -154,47 +196,116 @@ export default function CustomersPage() {
                   </tr>
                 ) : (
                   filteredCustomers.map((customer, i) => (
-                    <tr
-                      key={customer.id}
-                      className={`border-b border-border hover:bg-muted/20 transition ${
-                        i % 2 === 0 ? "" : "bg-muted/5"
-                      }`}
-                    >
-                      <td className="px-6 py-4">
-                        <div className="font-medium">{customer.name}</div>
-                        <div className="text-xs text-muted-foreground">{customer.id}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-xs">{customer.email}</div>
-                        <div className="text-xs text-muted-foreground">{customer.phone}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-                            tierStyle[customer.tier] ?? "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {customer.tier}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 font-medium">{customer.orders}</td>
-                      <td className="px-6 py-4 font-medium">{formatCurrency(customer.totalSpent)}</td>
-                      <td className="px-6 py-4 text-muted-foreground">{customer.joined}</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-                            statusStyle[customer.status] ?? "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {customer.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <button className="text-muted-foreground hover:text-foreground transition">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
+                    <React.Fragment key={customer.id}>
+                      <tr
+                        className={`border-b border-border hover:bg-muted/20 transition ${
+                          i % 2 === 0 ? "" : "bg-muted/5"
+                        }`}
+                      >
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => router.push(`/admin-dashboard/customers/${customer.id}`)}
+                            className="font-medium hover:text-[#B8860B] transition text-left"
+                          >
+                            {customer.name}
+                          </button>
+                          <div className="text-xs text-muted-foreground">
+                            {customer.id}
+                            {customer.isGuest && (
+                              <span className="ml-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium bg-blue-100 text-blue-700">
+                                Guest
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-xs">{customer.email}</div>
+                          <div className="text-xs text-muted-foreground">{customer.phone}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+                              tierStyle[customer.tier] ?? "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {customer.tier}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 font-medium">{customer.orders}</td>
+                        <td className="px-6 py-4 font-medium">{(customer.totalSpent)/100}</td>
+                        <td className="px-6 py-4 text-muted-foreground">{customer.joined}</td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+                              statusStyle[customer.status] ?? "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {customer.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            {customer.orders > 0 && (
+                              <button
+                                onClick={() => toggleExpand(customer.id)}
+                                className="text-muted-foreground hover:text-foreground transition"
+                                title="View orders"
+                              >
+                                {expandedCustomerId === customer.id ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </button>
+                            )}
+                            <button className="text-muted-foreground hover:text-foreground transition">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {expandedCustomerId === customer.id && customer.ordersData && (
+                        <tr key={`${customer.id}-expanded`}>
+                          <td colSpan={8} className="px-6 py-4 bg-muted/10">
+                            <div className="space-y-3">
+                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Order History ({customer.ordersData.length} orders)
+                              </h4>
+                              <div className="rounded-lg border border-border bg-background overflow-hidden">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="border-b border-border bg-muted/30">
+                                      <th className="px-4 py-2 text-left font-medium text-muted-foreground">Order #</th>
+                                      <th className="px-4 py-2 text-left font-medium text-muted-foreground">Date</th>
+                                      <th className="px-4 py-2 text-left font-medium text-muted-foreground">Total</th>
+                                      <th className="px-4 py-2 text-left font-medium text-muted-foreground">Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {customer.ordersData.map((order: any) => (
+                                      <tr key={order.id} className="border-b border-border last:border-0">
+                                        <td className="px-4 py-2 font-medium">{order.orderNumber}</td>
+                                        <td className="px-4 py-2 text-muted-foreground">{formatDate(order.createdAt)}</td>
+                                        <td className="px-4 py-2 font-medium">{formatCurrency(order.totalCents)}</td>
+                                        <td className="px-4 py-2">
+                                          <span
+                                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                              orderStatusStyle[order.status] ?? "bg-gray-100 text-gray-600"
+                                            }`}
+                                          >
+                                            {order.status}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))
                 )}
               </tbody>

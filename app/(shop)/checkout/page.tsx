@@ -171,7 +171,7 @@ export default function CheckoutPage() {
           <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</h1>
           <p className="text-gray-600 mb-6">Add some beautiful jewelry to get started</p>
-          <Link href="/shop/products">
+          <Link href="/products">
             <Button className="bg-[#B88E2F] hover:bg-[#9a7a29] text-white">
               Continue Shopping
             </Button>
@@ -192,7 +192,7 @@ export default function CheckoutPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <Link href="/shop/products" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4 transition-colors">
+          <Link href="/products" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4 transition-colors">
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to products
           </Link>

@@ -43,6 +43,7 @@ export function ProductViewer({ images }: { images: ProductImage[] }) {
             src={activeImage.url}
             alt={activeImage.altText || "Product view"}
             fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             priority
           />
@@ -99,6 +100,7 @@ export function ProductViewer({ images }: { images: ProductImage[] }) {
                   src={img.url}
                   alt={`Thumbnail ${idx + 1}`}
                   fill
+                  sizes="80px"
                   className="object-cover"
                 />
               )}

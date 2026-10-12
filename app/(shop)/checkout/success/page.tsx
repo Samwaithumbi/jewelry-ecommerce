@@ -188,7 +188,7 @@ export default function CheckoutSuccessPage() {
 
         {/* Action Buttons */}
         <div className="space-y-3">
-          <Link href="/shop/products" className="block">
+          <Link href="/products" className="block">
             <Button className="w-full" size="lg">
               Continue Shopping
             </Button>
