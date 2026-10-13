@@ -22,6 +22,9 @@ export const revalidate = 3600 // 1 hour ISR
 
 type Params = Promise<{ slug: string }>
 
+// Define variant type with stock quantity
+type VariantWithStock = typeof productVariants.$inferSelect & { stockQty: number }
+
 export async function generateStaticParams() {
   const allProducts = await db.select({ slug: products.slug }).from(products)
   return allProducts.map((p) => ({
@@ -61,7 +64,7 @@ export default async function ProductPage({ params }: { params: Params }) {
   const [mainLocation] = await db.select().from(inventoryLocations).where(eq(inventoryLocations.code, 'MAIN')).limit(1)
 
   // 2.2. Fetch Inventory Levels for Variants
-  let variants = variantsRaw.map(v => ({ ...v, stockQty: 0 }))
+  let variants: VariantWithStock[] = variantsRaw.map(v => ({ ...v, stockQty: 0 }))
   if (mainLocation && variantsRaw.length > 0) {
     const variantIds = variantsRaw.map(v => v.id)
     const inventoryData = await db

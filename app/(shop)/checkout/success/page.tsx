@@ -7,6 +7,7 @@
  * It shows order confirmation and next steps.
  */
 
+import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -41,7 +42,7 @@ interface Order {
   createdAt: string;
 }
 
-export default function CheckoutSuccessPage() {
+function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
   const [order, setOrder] = useState<Order | null>(null);
@@ -121,7 +122,7 @@ export default function CheckoutSuccessPage() {
                         <p className="text-sm text-gray-500">Qty: {item.qty}</p>
                       </div>
                       <p className="font-medium text-gray-900">
-                        ${((item.priceCents * item.qty) / 100).toFixed(2)}
+                        KSh {((item.priceCents * item.qty) / 100).toLocaleString()}
                       </p>
                     </div>
                   ))}
@@ -134,7 +135,7 @@ export default function CheckoutSuccessPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Subtotal</span>
-                    <span>${(order.subtotalCents / 100).toFixed(2)}</span>
+                    <span>KSh {(order.subtotalCents / 100).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Shipping</span>
@@ -142,11 +143,11 @@ export default function CheckoutSuccessPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Tax (16%)</span>
-                    <span>${(order.taxCents / 100).toFixed(2)}</span>
+                    <span>KSh {(order.taxCents / 100).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-lg font-bold pt-2 border-t">
                     <span>Total</span>
-                    <span className="text-[#B88E2F]">${(order.totalCents / 100).toFixed(2)}</span>
+                    <span className="text-[#B88E2F]">KSh {(order.totalCents / 100).toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -206,5 +207,20 @@ export default function CheckoutSuccessPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#B88E2F] mx-auto mb-4" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <CheckoutSuccessContent />
+    </Suspense>
   );
 }
