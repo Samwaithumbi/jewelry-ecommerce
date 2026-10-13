@@ -15,8 +15,6 @@ const EXCLUDED_STATUSES = new Set(['cancelled', 'refunded'])
 
 export async function getCustomers() {
   try {
-    console.log("Starting getCustomers fetch...")
-
     // Get all users
     const customersList = await db
       .select({

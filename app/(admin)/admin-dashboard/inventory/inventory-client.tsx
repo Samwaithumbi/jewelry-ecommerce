@@ -78,7 +78,7 @@ export function InventoryClient({ initialData }: { initialData: { items: Invento
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
 
   const formatCurrency = (cents: number) => {
-    return `Ksh${(cents / 100).toLocaleString()}`
+    return `KSh ${(cents / 100).toLocaleString()}`
   }
 
   const filteredItems = useMemo(() => {

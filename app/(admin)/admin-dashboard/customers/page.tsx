@@ -38,16 +38,9 @@ export default function CustomersPage() {
 
   useEffect(() => {
     async function fetchCustomers() {
-      try {
-        console.log("Client: Starting fetchCustomers...")
+      try {     
         const data = await getCustomers()
-        console.log("Client: Fetched customers data:", data)
-        console.log("Client: Data type:", typeof data)
-        console.log("Client: Data is array?", Array.isArray(data))
-        console.log("Client: Data length:", data?.length)
-        console.log("Client: Total revenue from fetched data:", data.reduce((sum, c) => sum + c.totalSpent, 0))
         setCustomers(data)
-        console.log("Client: State updated, customers:", data.length)
 
       } catch (error) {
         console.error("Client: Failed to fetch customers:", error)
@@ -76,7 +69,7 @@ export default function CustomersPage() {
   
 
   const formatCurrency = (cents: number) => {
-    return `$${(cents / 100).toLocaleString()}`
+    return `KSh ${(cents / 100).toLocaleString()}`
   }
 
   const formatDate = (dateString: string) => {
@@ -116,8 +109,8 @@ export default function CustomersPage() {
             </p>
             <p className="mt-2 text-2xl font-bold">
               {totalRevenue >= 1000
-                ? `Ksh${(totalRevenue / 1000).toFixed(1)}k`
-                : `Ksh${(totalRevenue / 100).toFixed(2)}`
+                ? `KSh ${(totalRevenue / 1000).toFixed(1)}k`
+                : `KSh ${(totalRevenue / 100).toFixed(2)}`
               }
             </p>
           </div>

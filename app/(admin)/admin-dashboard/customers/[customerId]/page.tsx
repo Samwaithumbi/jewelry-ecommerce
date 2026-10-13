@@ -55,7 +55,7 @@ export default function CustomerDetailPage() {
   }, [customerId])
 
   const formatCurrency = (cents: number) => {
-    return `$${(cents / 100).toLocaleString()}`
+    return `KSh ${(cents / 100).toLocaleString()}`
   }
 
   const formatDate = (dateString: string) => {

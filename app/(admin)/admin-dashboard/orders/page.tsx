@@ -34,6 +34,8 @@ import {
   Eye,
   Truck
 } from 'lucide-react';
+import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Order {
   id: string;
@@ -134,7 +136,7 @@ export default function OrdersPage() {
   };
 
   const formatCurrency = (cents: number) => {
-    return (cents / 100).toFixed(2);
+    return `KSh ${(cents / 100).toLocaleString()}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -228,11 +230,20 @@ export default function OrdersPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
-                  Loading orders...
-                </TableCell>
-              </TableRow>
+              <>
+                {[...Array(5)].map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                  </TableRow>
+                ))}
+              </>
             ) : orders.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8">
@@ -266,7 +277,7 @@ export default function OrdersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium">
-                    ${formatCurrency(order.totalCents)}
+                    {formatCurrency(order.totalCents)}
                   </TableCell>
                   <TableCell>
                     {formatDate(order.createdAt)}
@@ -282,11 +293,11 @@ export default function OrdersPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <a href={`/admin/orders/${order.id}`}>
+                    <Link href={`/admin-dashboard/orders/${order.id}`}>
                       <Button variant="ghost" size="sm">
                         <Eye className="h-4 w-4" />
                       </Button>
-                    </a>
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))

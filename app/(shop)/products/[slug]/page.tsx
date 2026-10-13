@@ -9,7 +9,8 @@ import {
   certificates,
   metalPricing,
 } from "@/drizzle/src/db/schema"
-import { eq, or, and, asc, not, inArray } from "drizzle-orm"
+import { inventoryLevels, inventoryLocations } from "@/drizzle/src/db/inventory-schema"
+import { eq, or, and, asc, not, inArray, sql } from "drizzle-orm"
 import { ProductViewer } from "@/components/shop/product-viewer"
 import { ProductClient } from "@/components/shop/product-client"
 import { SizeGuideDialog } from "@/components/shop/size-guide-dialog"
@@ -53,8 +54,38 @@ export default async function ProductPage({ params }: { params: Params }) {
 
   // 2. Fetch Relations
   const images = await db.select().from(productImages).where(eq(productImages.productId, product.id)).orderBy(asc(productImages.position))
-  const variants = await db.select().from(productVariants).where(eq(productVariants.productId, product.id))
+  const variantsRaw = await db.select().from(productVariants).where(eq(productVariants.productId, product.id))
   const [certificate] = await db.select().from(certificates).where(eq(certificates.productId, product.id)).limit(1)
+
+  // 2.1. Fetch Main Inventory Location
+  const [mainLocation] = await db.select().from(inventoryLocations).where(eq(inventoryLocations.code, 'MAIN')).limit(1)
+
+  // 2.2. Fetch Inventory Levels for Variants
+  let variants = variantsRaw.map(v => ({ ...v, stockQty: 0 }))
+  if (mainLocation && variantsRaw.length > 0) {
+    const variantIds = variantsRaw.map(v => v.id)
+    const inventoryData = await db
+      .select({
+        variantId: inventoryLevels.variantId,
+        available: sql<number>`${inventoryLevels.onHand} - ${inventoryLevels.reserved}`,
+      })
+      .from(inventoryLevels)
+      .where(
+        and(
+          eq(inventoryLevels.locationId, mainLocation.id),
+          inArray(inventoryLevels.variantId, variantIds)
+        )
+      )
+
+    // Create inventory map
+    const inventoryMap = new Map(inventoryData.map(inv => [inv.variantId, Number(inv.available)]))
+
+    // Add stock qty to variants
+    variants = variantsRaw.map(v => ({
+      ...v,
+      stockQty: inventoryMap.get(v.id) || 0,
+    }))
+  }
 
   // 3. Fetch Metal Pricing
   const [metalPriceRecord] = await db.select().from(metalPricing)
@@ -102,9 +133,9 @@ export default async function ProductPage({ params }: { params: Params }) {
     "offers": {
       "@type": "Offer",
       "url": `https://luminajewelry.com/products/${product.slug}`,
-      "priceCurrency": "USD",
+      "priceCurrency": "KES",
       "price": ((baseTotalCents + (firstAvailableVariant?.priceAdjustCents || 0)) / 100).toFixed(2),
-      "availability": firstAvailableVariant?.stockQty > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      "availability": (firstAvailableVariant && firstAvailableVariant.stockQty > 0) ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       "itemCondition": "https://schema.org/NewCondition"
     }
   }

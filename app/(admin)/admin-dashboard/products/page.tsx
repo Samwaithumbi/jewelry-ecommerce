@@ -113,7 +113,7 @@ export default async function Products() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="font-medium text-slate-900">${(product.basePriceCents / 100).toLocaleString()}</div>
+                  <div className="font-medium text-slate-900">KSh {(product.basePriceCents / 100).toLocaleString()}</div>
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary" className="bg-emerald-50 text-emerald-600 hover:bg-emerald-50 border-0 rounded-full">

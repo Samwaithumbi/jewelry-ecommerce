@@ -39,6 +39,7 @@ import {
   TableHead, 
   TableCell 
 } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface OrderItem {
   id: string;
@@ -131,7 +132,7 @@ export default function OrderDetailPage() {
   };
 
   const formatCurrency = (cents: number) => {
-    return (cents / 100).toFixed(2);
+    return `KSh ${(cents / 100).toLocaleString()}`;
   };
 
   const formatDate = (dateString: string | null) => {
@@ -203,9 +204,7 @@ export default function OrderDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="text-center py-8">Loading order details...</div>
-      </div>
+      <Skeleton className="h-[20px] w-[100px] rounded-full"/>
     );
   }
 
@@ -224,7 +223,7 @@ export default function OrderDetailPage() {
     <div className="p-6">
       {/* Header */}
       <div className="mb-6">
-        <a href="/admin/admin-dashboard/orders">
+        <a href="/admin-dashboard/orders">
           <Button variant="ghost" size="sm" className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Orders
@@ -275,10 +274,10 @@ export default function OrderDetailPage() {
                       </TableCell>
                       <TableCell className="text-right">{item.qty}</TableCell>
                       <TableCell className="text-right">
-                        ${formatCurrency(item.priceCents)}
+                        {formatCurrency(item.priceCents)}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        ${formatCurrency(item.priceCents * item.qty)}
+                        {formatCurrency(item.priceCents * item.qty)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -289,19 +288,19 @@ export default function OrderDetailPage() {
               <div className="mt-6 space-y-2 pt-4 border-t">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium">${formatCurrency(order.subtotalCents)}</span>
+                  <span className="font-medium">{formatCurrency(order.subtotalCents)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span className="font-medium">${formatCurrency(order.shippingCents)}</span>
+                  <span className="font-medium">{formatCurrency(order.shippingCents)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Tax</span>
-                  <span className="font-medium">${formatCurrency(order.taxCents)}</span>
+                  <span className="font-medium">{formatCurrency(order.taxCents)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span>Total</span>
-                  <span>${formatCurrency(order.totalCents)}</span>
+                  <span>{formatCurrency(order.totalCents)}</span>
                 </div>
               </div>
             </CardContent>
