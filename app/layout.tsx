@@ -1,5 +1,12 @@
 import "./globals.css"
 
+export const metadata = {
+     // ...your existing metadata
+     verification: {
+       google: "5348235bd3b9cdd8",
+     },
+   };
+
 export default function RootLayout({
   children,
 }: {
