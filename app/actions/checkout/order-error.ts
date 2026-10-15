@@ -12,7 +12,7 @@ import { db } from '@/lib/db';
 import { orders, payments } from '@/drizzle/src/db/schema';
 import { eq, desc, and } from 'drizzle-orm';
 import type { OrderStatus } from '@/lib/order-status';
-import { sendPaymentFailedEmailAsync } from '@/lib/email';
+import { sendPaymentFailedEmailAsync } from '@/lib/emails/email';
 import { getUserErrorMessage } from '@/lib/mpesa/callback';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

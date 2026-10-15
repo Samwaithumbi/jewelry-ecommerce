@@ -55,10 +55,12 @@ function buildPageHref(
     hasCert: boolean
     size?: string
     sort: string
+    q?: string
   }
 ) {
   const qs = new URLSearchParams()
   qs.set("page", String(targetPage))
+  if (params.q) qs.set("q", params.q)
   if (params.category) qs.set("category", params.category)
   if (params.metalTypes?.length) qs.set("metal", params.metalTypes.join(","))
   if (params.stoneTypes?.length) qs.set("stone", params.stoneTypes.join(","))
@@ -75,10 +77,29 @@ type SearchParams = { [key: string]: string | string[] | undefined }
 
 async function ProductsContent({ searchParams }: { searchParams: SearchParams }) {
   // ── Parse & validate search params ─────────────────────────────────────────
-  const category =
+  // Normalize category: map plural or case variants to valid Postgres enum values
+  const rawCategory =
     typeof searchParams.category === "string" && searchParams.category !== ""
-      ? searchParams.category
+      ? searchParams.category.toLowerCase().trim()
       : undefined
+
+  const categoryMap: Record<string, "ring" | "necklace" | "bracelet" | "earring" | "pendant" | "bangle" | "set"> = {
+    ring: "ring",
+    rings: "ring",
+    necklace: "necklace",
+    necklaces: "necklace",
+    bracelet: "bracelet",
+    bracelets: "bracelet",
+    earring: "earring",
+    earrings: "earring",
+    pendant: "pendant",
+    pendants: "pendant",
+    bangle: "bangle",
+    bangles: "bangle",
+    set: "set",
+    sets: "set",
+  }
+  const category = rawCategory ? categoryMap[rawCategory] : undefined
 
   // nuqs serialises parseAsArrayOf as comma-separated values: ?metal=gold,silver
   const metalTypes =
@@ -107,6 +128,13 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
       ? searchParams.size
       : undefined
 
+  const searchQuery =
+    typeof searchParams.q === "string" && searchParams.q.trim() !== ""
+      ? searchParams.q.trim()
+      : typeof searchParams.search === "string" && searchParams.search.trim() !== ""
+      ? searchParams.search.trim()
+      : undefined
+
   const validSorts = ["popular", "newest", "price-asc", "price-desc"] as const
   type SortKey = (typeof validSorts)[number]
   const sort: SortKey =
@@ -125,6 +153,12 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
     // Always scope to active products
     eq(products.active, true) as Condition,
   ]
+
+  if (searchQuery) {
+    conditions.push(
+      sql`(${products.name} ILIKE ${`%${searchQuery}%`} OR ${products.description} ILIKE ${`%${searchQuery}%`})` as unknown as Condition
+    )
+  }
 
   if (category) {
     // Use raw SQL to sidestep Drizzle's strict enum overload — category is a PG enum column
@@ -284,20 +318,20 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
 
   // ── Pagination maths ────────────────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(totalProducts / LIMIT))
-  const paginationParams = { category, metalTypes, stoneTypes, maxPrice, hasCert, size, sort }
+  const paginationParams = { category, metalTypes, stoneTypes, maxPrice, hasCert, size, sort, q: searchQuery }
 
   // ── Empty state ─────────────────────────────────────────────────────────────
   if (displayProducts.length === 0) {
     return (
       <div className="min-h-screen bg-[#FAF9F6] pb-24">
         <div className="mx-auto max-w-7xl px-4 md:px-8">
-          <ShopHeader />
+          <ShopHeader totalCount={0} currentCategory={category} searchQuery={searchQuery} />
           <div className="flex flex-col lg:flex-row gap-8 items-start">
             <div className="hidden lg:block sticky top-8 z-10 w-full max-w-260px">
               <ProductFilters counts={filterCounts} />
             </div>
             <div className="flex-1 w-full flex flex-col">
-              <ProductToolbar />
+              <ProductToolbar totalCount={0} />
               <div className="flex flex-col items-center justify-center py-32 text-center gap-4">
                 <div className="flex size-20 items-center justify-center rounded-full bg-primary/5">
                   <PackageSearch className="size-10 text-muted-foreground/50" />
@@ -323,7 +357,7 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
   return (
     <div className="min-h-screen bg-[#FAF9F6] pb-24">
       <div className="mx-auto max-w-7xl px-4 md:px-8">
-        <ShopHeader />
+        <ShopHeader totalCount={totalProducts} currentCategory={category} searchQuery={searchQuery} />
        
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           <div className="hidden lg:block sticky top-8 z-10 w-full max-w-260px">
@@ -331,9 +365,9 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
           </div>
 
           <div className="flex-1 w-full flex flex-col">
-            <ProductToolbar />
+            <ProductToolbar totalCount={totalProducts} />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {displayProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

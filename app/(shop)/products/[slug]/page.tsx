@@ -64,7 +64,7 @@ export default async function ProductPage({ params }: { params: Params }) {
   const [mainLocation] = await db.select().from(inventoryLocations).where(eq(inventoryLocations.code, 'MAIN')).limit(1)
 
   // 2.2. Fetch Inventory Levels for Variants
-  let variants: VariantWithStock[] = variantsRaw.map(v => ({ ...v, stockQty: 0 }))
+  let variants: VariantWithStock[] = variantsRaw.map(v => ({ ...v, stockQty: 10 }))
   if (mainLocation && variantsRaw.length > 0) {
     const variantIds = variantsRaw.map(v => v.id)
     const inventoryData = await db
@@ -83,11 +83,30 @@ export default async function ProductPage({ params }: { params: Params }) {
     // Create inventory map
     const inventoryMap = new Map(inventoryData.map(inv => [inv.variantId, Number(inv.available)]))
 
-    // Add stock qty to variants
+    // Add stock qty to variants (fallback to 10 if inventory level record hasn't been created yet)
     variants = variantsRaw.map(v => ({
       ...v,
-      stockQty: inventoryMap.get(v.id) || 0,
+      stockQty: inventoryMap.has(v.id) ? (inventoryMap.get(v.id) ?? 0) : 10,
     }))
+  } else if (variantsRaw.length === 0) {
+    // If product has no variants in DB, provide a default standard variant so user can still select quantity and purchase
+    variants = [
+      {
+        id: product.id,
+        productId: product.id,
+        sku: `${product.slug}-default`,
+        size: null,
+        sizeSystem: null,
+        stoneType: null,
+        stoneCarat: null,
+        stoneCut: null,
+        stoneColor: null,
+        stoneClarity: null,
+        priceAdjustCents: 0,
+        active: true,
+        stockQty: 10,
+      } as VariantWithStock
+    ]
   }
 
   // 3. Fetch Metal Pricing
@@ -152,22 +171,25 @@ export default async function ProductPage({ params }: { params: Params }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       
-      <div className="container mx-auto px-4 py-8 md:py-12 max-w-7xl">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 max-w-7xl">
         {/* Breadcrumb */}
-        <nav className="flex text-sm text-muted-foreground mb-8">
-          <Link href="/" className="hover:text-primary transition-colors">Home</Link>
-          <span className="mx-2">/</span>
-          <Link href="/products" className="hover:text-primary transition-colors">Shop</Link>
-          <span className="mx-2">/</span>
-          <span className="capitalize hover:text-primary transition-colors cursor-pointer">
+        <nav className="flex items-center text-xs sm:text-sm text-muted-foreground mb-8 overflow-hidden">
+          <Link href="/" className="hover:text-[#B88E2F] transition-colors">Home</Link>
+          <span className="mx-2 text-muted-foreground/40">/</span>
+          <Link href="/products" className="hover:text-[#B88E2F] transition-colors">Shop</Link>
+          <span className="mx-2 text-muted-foreground/40">/</span>
+          <Link 
+            href={`/products?category=${product.category}`} 
+            className="capitalize hover:text-[#B88E2F] transition-colors font-medium text-foreground"
+          >
             {product.category}
-          </span>
-          <span className="mx-2">/</span>
+          </Link>
+          <span className="mx-2 text-muted-foreground/40">/</span>
           <span className="text-[#111827] font-medium truncate max-w-[200px] sm:max-w-xs">{product.name}</span>
         </nav>
 
         {/* Main Product Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-8 md:gap-12 xl:gap-16">
           
           {/* Left Column: Viewer */}
           <div className="w-full">
@@ -214,32 +236,7 @@ export default async function ProductPage({ params }: { params: Params }) {
               </div>
             </div>
 
-            {/* Certificate Section */}
-            {certificate && (
-              <div className="mt-8 pt-8 border-t border-primary/10">
-                <div className="bg-[#FCFBF9] border border-primary/10 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="size-12 rounded-full bg-white border shadow-sm flex items-center justify-center">
-                      <ShieldCheck className="size-6 text-[#B88E2F]" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-[#111827]">{certificate.lab} Certified Gemstone</h4>
-                      <p className="text-sm text-muted-foreground">Report #{certificate.certNumber}</p>
-                    </div>
-                  </div>
-                  <Link 
-                    href={`https://www.gia.edu/report-check?reportno=${certificate.certNumber}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm font-medium text-[#B88E2F] hover:text-[#F59E0B] transition-colors bg-white px-4 py-2 rounded-full border shadow-sm self-start sm:self-auto"
-                  >
-                    Verify Report
-                    <ExternalLink className="size-3.5" />
-                  </Link>
-                </div>
-              </div>
-            )}
-
+         
             {/* Description Details */}
             {product.description && (
               <div className="mt-8 pt-8 border-t border-primary/10">

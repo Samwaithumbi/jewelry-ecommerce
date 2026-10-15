@@ -6,6 +6,7 @@ import { inventoryLevels, inventoryLocations } from "@/drizzle/src/db/inventory-
 import { eq, sql, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { adjustInventory } from "@/lib/inventory/service";
+import { requireAdminSession } from "@/lib/auth-guard";
 
 export type InventoryItemDB = {
   id: string; // variant id (or product id if no variant)
@@ -55,97 +56,7 @@ function calculateStatus(stock: number, reorderPoint: number): "Good" | "Low" | 
   return "Good";
 }
 
-// Initial seed items to auto-populate if database is empty
-const SEED_CATALOG = [
-  {
-    sku: "LJ-RING-001",
-    name: "Eternal Rose Diamond Ring",
-    category: "ring" as const,
-    stock: 2,
-    reorderPoint: 5,
-    unitPrice: 4850,
-    metalType: "rose_gold" as const,
-    metalPurity: "18k" as const,
-    imageUrl: "https://images.unsplash.com/photo-1605100804763-247f661c4480?w=600&h=600&fit=crop",
-  },
-  {
-    sku: "LJ-NECK-002",
-    name: "Lumière Sapphire Pendant",
-    category: "necklace" as const,
-    stock: 14,
-    reorderPoint: 8,
-    unitPrice: 2340,
-    metalType: "white_gold" as const,
-    metalPurity: "18k" as const,
-    imageUrl: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=600&h=600&fit=crop",
-  },
-  {
-    sku: "LJ-BRAC-003",
-    name: "Celestial Tennis Diamond Bracelet",
-    category: "bracelet" as const,
-    stock: 3,
-    reorderPoint: 6,
-    unitPrice: 6750,
-    metalType: "platinum" as const,
-    metalPurity: "950" as const,
-    imageUrl: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=600&h=600&fit=crop",
-  },
-  {
-    sku: "LJ-EARR-004",
-    name: "Imperial Sapphire Drop Earrings",
-    category: "earring" as const,
-    stock: 18,
-    reorderPoint: 8,
-    unitPrice: 3200,
-    metalType: "white_gold" as const,
-    metalPurity: "18k" as const,
-    imageUrl: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600&h=600&fit=crop",
-  },
-  {
-    sku: "LJ-RING-005",
-    name: "Solitaire Halo Platinum Ring",
-    category: "ring" as const,
-    stock: 0,
-    reorderPoint: 4,
-    unitPrice: 5100,
-    metalType: "platinum" as const,
-    metalPurity: "950" as const,
-    imageUrl: "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?w=600&h=600&fit=crop",
-  },
-  {
-    sku: "LJ-NECK-006",
-    name: "Akoya Sea Pearl Strand",
-    category: "necklace" as const,
-    stock: 4,
-    reorderPoint: 5,
-    unitPrice: 1890,
-    metalType: "gold" as const,
-    metalPurity: "18k" as const,
-    imageUrl: "https://images.unsplash.com/photo-1589128777073-263566ae5e4d?w=600&h=600&fit=crop",
-  },
-  {
-    sku: "LJ-BRAC-007",
-    name: "18k Aurore Gold Bangle",
-    category: "bracelet" as const,
-    stock: 1,
-    reorderPoint: 3,
-    unitPrice: 2950,
-    metalType: "gold" as const,
-    metalPurity: "18k" as const,
-    imageUrl: "https://images.unsplash.com/photo-1611591475168-b7a6616ca06d?w=600&h=600&fit=crop",
-  },
-  {
-    sku: "LJ-EARR-008",
-    name: "Emerald Cut Vintage Studs",
-    category: "earring" as const,
-    stock: 9,
-    reorderPoint: 5,
-    unitPrice: 4120,
-    metalType: "gold" as const,
-    metalPurity: "18k" as const,
-    imageUrl: "https://images.unsplash.com/photo-1535632787350-4e68ef0ac584?w=600&h=600&fit=crop",
-  },
-];
+
 
 export async function getInventoryItems(): Promise<InventoryItemDB[]> {
   try {
@@ -204,70 +115,6 @@ export async function getInventoryItems(): Promise<InventoryItemDB[]> {
         and(eq(productImages.productId, products.id), eq(productImages.isPrimary, true))
       );
 
-    // If completely empty DB, seed the 8 starter SKUs
-    if (variants.length === 0 && allProducts.length === 0) {
-      for (const item of SEED_CATALOG) {
-        const slug = `${item.sku.toLowerCase()}-${Date.now()}`;
-        const [prod] = await db
-          .insert(products)
-          .values({
-            name: item.name,
-            slug,
-            description: `Exquisite luxury ${item.name} handcrafted by master jewelers.`,
-            metalType: item.metalType,
-            metalPurity: item.metalPurity,
-            basePriceCents: item.unitPrice * 100,
-            weightGrams: "6.500",
-            category: item.category,
-            active: true,
-          })
-          .returning({ id: products.id });
-
-        if (prod?.id) {
-          const [newVariant] = await db.insert(productVariants).values({
-            productId: prod.id,
-            sku: item.sku,
-            priceAdjustCents: 0,
-            active: true,
-          }).returning();
-
-          if (newVariant) {
-            // Create inventory level
-            await db.insert(inventoryLevels).values({
-              variantId: newVariant.id,
-              locationId: mainLocation.id,
-              onHand: item.stock,
-              reserved: 0,
-              reorderPoint: item.reorderPoint,
-              reorderQuantity: 0,
-            });
-
-            // Create initial movement
-            const { inventoryMovements } = await import("@/drizzle/src/db/inventory-schema");
-            await db.insert(inventoryMovements).values({
-              variantId: newVariant.id,
-              locationId: mainLocation.id,
-              movementType: "restock",
-              quantity: item.stock,
-              referenceType: "seed",
-              reason: "Initial seed stock",
-            });
-          }
-
-          if (item.imageUrl) {
-            await db.insert(productImages).values({
-              productId: prod.id,
-              url: item.imageUrl,
-              position: 1,
-              isPrimary: true,
-            });
-          }
-        }
-      }
-
-      // Re-fetch now that seeding completed
-      return getInventoryItems();
-    }
 
     // If there are products without variants, create a variant for each so they're tracked
     const variantProductIds = new Set(variants.map((v) => v.productId));
@@ -346,6 +193,7 @@ export async function getInventoryItems(): Promise<InventoryItemDB[]> {
 }
 
 export async function updateStockQty(variantId: string, newQty: number) {
+  await requireAdminSession();
   try {
     // Get MAIN location
     const mainLocation = await db.query.inventoryLocations.findFirst({
@@ -385,6 +233,7 @@ export async function updateStockQty(variantId: string, newQty: number) {
 }
 
 export async function restockVariant(variantId: string, addQty: number) {
+  await requireAdminSession();
   try {
     const qty = Math.max(1, addQty);
     
@@ -414,6 +263,7 @@ export async function restockVariant(variantId: string, addQty: number) {
 }
 
 export async function updateReorderPoint(variantId: string, threshold: number) {
+  await requireAdminSession();
   try {
     // Get MAIN location
     const mainLocation = await db.query.inventoryLocations.findFirst({
@@ -459,6 +309,7 @@ export async function createInventorySKU(data: {
   initialStock: number;
   reorderPoint?: number;
 }) {
+  await requireAdminSession();
   try {
     const dbCategory = mapDisplayToDBCategory(data.category);
     const slug = `${data.sku.toLowerCase()}-${Date.now()}`;

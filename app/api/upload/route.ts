@@ -3,6 +3,9 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { r2, R2_BUCKET, R2_PUBLIC_URL } from "@/lib/r2";
 import { randomUUID } from "crypto";
 
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -19,6 +22,11 @@ function errorResponse(message: string, status: number) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || (session.user as any)?.role !== "admin") {
+      return errorResponse("Forbidden: Admin access required", 403);
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
 

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Heart, Search, User, Sparkle, ChevronDown, Menu, X } from "lucide-react"
+import { Heart,  User, Sparkle, ChevronDown, Menu, X } from "lucide-react"
 import { CartSheet } from "@/components/cart/cart-sheet"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
@@ -10,12 +10,19 @@ import { getWishlistCount } from "@/app/actions/wishlist/get-wishlist-count"
 
 export function  Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
 
   useEffect(() => {
-    getWishlistCount().then(setWishlistCount)
-    
+    const updateCount = () => {
+      getWishlistCount().then(setWishlistCount)
+    }
+
+    updateCount()
+    window.addEventListener("wishlist-update", updateCount)
+
+    return () => {
+      window.removeEventListener("wishlist-update", updateCount)
+    }
   }, [])
 
 
@@ -26,7 +33,7 @@ export function  Navbar() {
         {/* Logo and Brand Name */}
         <div className="flex items-center">
           <Link href="/" className="flex items-center space-x-3">
-            <div className="relative size-10 rounded-full bg-[#B88E2F] flex items-center justify-center text-white font-bold text-xl ">
+            <div className="relative size-7 rounded-full bg-[#B88E2F] flex items-center justify-center text-white font-bold text-lg ">
               L
             </div>
             <span className="font-serif text-lg  font-medium-bold tracking-wider text-[#111827] md:text-2xl ">
@@ -47,16 +54,16 @@ export function  Navbar() {
                 <Link href="/products" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-[#B88E2F]">
                   All Products
                 </Link>
-                <Link href="/products?category=necklaces" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-[#B88E2F]">
+                <Link href="/products?category=necklace" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-[#B88E2F]">
                   Necklaces
                 </Link>
-                <Link href="/products?category=rings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-[#B88E2F]">
+                <Link href="/products?category=ring" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-[#B88E2F]">
                   Rings
                 </Link>
-                <Link href="/products?category=earrings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-[#B88E2F]">
+                <Link href="/products?category=earring" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-[#B88E2F]">
                   Earrings
                 </Link>
-                <Link href="/products?category=bracelets" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-[#B88E2F]">
+                <Link href="/products?category=bracelet" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-[#B88E2F]">
                   Bracelets
                 </Link>
               </div>
@@ -106,7 +113,7 @@ export function  Navbar() {
         <div className="flex items-center gap-2">
 
           <Button variant="ghost" size="icon" className="relative text-[#111827] hover:text-[#B88E2F]">
-            <Link href="/wishlist">
+            <Link href="/account/wishlist">
               <Heart className="h-5 w-5" />
               {wishlistCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#B88E2F] text-[10px] text-white">
@@ -136,123 +143,59 @@ export function  Navbar() {
         </div>
       </div>
 
-    {searchOpen && (
-  <div className="fixed z-50 bg-white mt-10 bg-black/30 backdrop-blur-sm">
-    {/* Header */}
-    <div className="border-b border-gray-200">
-      <div className="mx-auto flex h-20 max-w-5xl items-center gap-4 px-4 sm:px-6">
-        <Search className="h-5 w-5 shrink-0 text-gray-500" />
 
-        <input
-          autoFocus
-          type="search"
-          placeholder="Search rings, necklaces, earrings..."
-          className="h-full flex-1 border-0 bg-transparent text-lg text-gray-900 outline-none placeholder:text-gray-400"
-        />
-
+    
+    {/* Mobile Menu */}
+    {mobileMenuOpen && (
+      <>
+        {/* Backdrop: tapping outside closes the menu */}
         <button
           type="button"
-          onClick={() => setSearchOpen(false)}
-          aria-label="Close search"
-          className="flex size-10 shrink-0 items-center justify-center rounded-full transition hover:bg-gray-100"
-        >
-          <X className="h-5 w-5 text-gray-700" />
-        </button>
-      </div>
-    </div>
+          aria-label="Close mobile menu"
+          className="fixed inset-0 top-16 z-40 bg-black/30 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
 
-    {/* Content */}
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      
-      {/* Popular searches */}
-      <section>
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-          Popular searches
-        </h2>
-
-        <div className="flex flex-wrap gap-3">
-          {["Rings", "Necklaces", "Earrings", "Bracelets"].map(
-            (search) => (
-              <button
-                key={search}
-                type="button"
-                className="rounded-full border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 transition hover:border-[#B8860B] hover:text-[#B8860B]"
-              >
-                {search}
-              </button>
-            )
-          )}
-        </div>
-      </section>
-
-      {/* Search tools */}
-      <section className="mt-10">
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-          Explore
-        </h2>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <button
-            type="button"
-            className="group flex items-center gap-4 rounded-2xl border border-gray-200 p-5 text-left transition hover:border-[#B8860B] hover:shadow-sm"
-          >
-            <div className="flex size-12 items-center justify-center rounded-full bg-[#F8F1E3]">
-              <Search className="h-5 w-5 text-[#B8860B]" />
-            </div>
-
-            <div>
-              <p className="font-semibold text-gray-900">
-                Visual Search
-              </p>
-              <p className="mt-1 text-sm text-gray-500">
-                Find jewelry similar to a photo
-              </p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            className="group flex items-center gap-4 rounded-2xl border border-gray-200 p-5 text-left transition hover:border-[#B8860B] hover:shadow-sm"
-          >
-            <div className="flex size-12 items-center justify-center rounded-full bg-[#F8F1E3]">
-              <Sparkle className="h-5 w-5 text-[#B8860B]" />
-            </div>
-
-            <div>
-              <p className="font-semibold text-gray-900">
-                AI Stylist
-              </p>
-              <p className="mt-1 text-sm text-gray-500">
-                Get personalized jewelry recommendations
-              </p>
-            </div>
-          </button>
-        </div>
-      </section>
-    </div>
-  </div>
-)}
-
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden border-t bg-white py-4">
-          <nav className="container flex flex-col gap-4">
-            <Link href="/products" className="text-sm font-medium text-[#111827] hover:text-[#B88E2F]">
+        {/* Menu panel */}
+        <div className="absolute left-0 right-0 top-full z-50 border-t bg-white py-4 shadow-lg lg:hidden">
+          <nav className="container ml-2 flex flex-col gap-4">
+            <Link
+              href="/products"
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-lg font-medium text-[#111827] hover:text-[#B88E2F]"
+            >
               Shop
             </Link>
-            <Link href="/collections" className="text-sm font-medium text-[#111827] hover:text-[#B88E2F]">
+
+            <Link
+              href="/collections"
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-lg font-medium text-[#111827] hover:text-[#B88E2F]"
+            >
               Collections
             </Link>
-            <Link href="/custom-jewelry" className="text-sm font-medium text-[#111827] hover:text-[#B88E2F]">
+
+            <Link
+              href="/custom-jewelry"
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-lg font-medium text-[#111827] hover:text-[#B88E2F]"
+            >
               Custom Jewelry
             </Link>
-            <Link href="/ai-stylist" className="flex items-center text-sm font-medium text-[#111827] hover:text-[#B88E2F]">
+
+            <Link
+              href="/ai-stylist"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center text-lg font-medium text-[#111827] hover:text-[#B88E2F]"
+            >
               AI Stylist
               <Sparkle className="ml-1 h-4 w-4 text-[#B88E2F]" />
             </Link>
           </nav>
         </div>
-      )}
-    </header>
+      </>
+    )}
+
+   </header>
   )
 }

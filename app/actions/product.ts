@@ -6,6 +6,7 @@ import { inventoryLevels, inventoryLocations, inventoryMovements } from "@/drizz
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { ProductFormValues } from "@/lib/validations";
+import { requireAdminSession } from "@/lib/auth-guard";
 
 export async function createProduct(data: ProductFormValues & {
   sku?: string;
@@ -15,6 +16,7 @@ export async function createProduct(data: ProductFormValues & {
   initialStock?: number;
   reorderPoint?: number;
 }) {
+  await requireAdminSession();
   // 1. Create product
   const result = await db.insert(products).values({
     name: data.name,
@@ -23,7 +25,7 @@ export async function createProduct(data: ProductFormValues & {
     metalType: data.metalType,
     metalPurity: data.metalPurity,
     basePriceCents: data.basePriceCents,
-    weightGrams: data.weightGrams.toString() as any,
+    weightGrams: data.weightGrams.toString(),
     category: data.category,
   }).returning({ id: products.id });
 
@@ -85,6 +87,7 @@ export async function createProduct(data: ProductFormValues & {
 }
 
 export async function updateProduct(id: string, data: ProductFormValues) {
+  await requireAdminSession();
   await db.update(products).set({
     name: data.name,
     slug: data.slug,
@@ -92,7 +95,7 @@ export async function updateProduct(id: string, data: ProductFormValues) {
     metalType: data.metalType,
     metalPurity: data.metalPurity,
     basePriceCents: data.basePriceCents,
-    weightGrams: data.weightGrams.toString() as any,
+    weightGrams: data.weightGrams.toString(),
     category: data.category,
     updatedAt: new Date(),
   }).where(eq(products.id, id));
@@ -112,6 +115,33 @@ export async function updateProduct(id: string, data: ProductFormValues) {
 }
 
 export async function deleteProduct(id: string) {
+  await requireAdminSession();
+  
+  // Find all variants for this product
+  const variants = await db
+    .select({ id: productVariants.id })
+    .from(productVariants)
+    .where(eq(productVariants.productId, id));
+
+  const variantIds = variants.map((v) => v.id);
+
+  if (variantIds.length > 0) {
+    // Delete reservation items, movements, and inventory levels
+    const { inventoryReservationItems } = await import("@/drizzle/src/db/inventory-schema");
+    const { inArray } = await import("drizzle-orm");
+
+    await db.delete(inventoryReservationItems).where(inArray(inventoryReservationItems.variantId, variantIds));
+    await db.delete(inventoryMovements).where(inArray(inventoryMovements.variantId, variantIds));
+    await db.delete(inventoryLevels).where(inArray(inventoryLevels.variantId, variantIds));
+    await db.delete(productVariants).where(inArray(productVariants.id, variantIds));
+  }
+
+  // Delete images
+  await db.delete(productImages).where(eq(productImages.productId, id));
+
+  // Delete product
   await db.delete(products).where(eq(products.id, id));
+
   revalidatePath("/admin-dashboard/products");
+  revalidatePath("/admin-dashboard/inventory");
 }

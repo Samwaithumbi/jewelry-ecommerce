@@ -3,23 +3,18 @@
 import Link from "next/link"
 
 const shopLinks = [
-  { name: "All Jewelry", href: "/shop" },
-  { name: "Rings", href: "/shop?category=rings" },
-  { name: "Necklaces", href: "/shop?category=necklaces" },
-  { name: "Earrings", href: "/shop?category=earrings" },
+  { name: "All Jewelry", href: "/products" },
+  { name: "Rings", href: "/products?category=ring" },
+  { name: "Necklaces", href: "/products?category=necklace" },
+  { name: "Earrings", href: "/products?category=earring" },
 ]
 
-const discoverLinks = [
-  { name: "AI Stylist", href: "/ai-stylist" },
-  { name: "Visual Search", href: "/visual-search" },
-  { name: "AR Try-On", href: "/ar-try-on" },
-  { name: "Blog", href: "/blog" },
-]
+
 
 const contactInfo = {
-  phone: "+1 (555) 123-4567",
+  phone: "+254113316693",
   email: "hello@luminajewels.com",
-  address: "123 Luxury Lane, Beverly Hills, CA 90210",
+  address: "Nairobi Luthuri",
 }
 
 const socialLinks = [
@@ -42,12 +37,13 @@ const socialLinks = [
     ),
   },
   {
-    name: "Pinterest",
-    href: "https://pinterest.com/luminajewels",
+    name: "TikTok",
+    href: "https://tiktok.com/luminajewels",
     icon: (
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M12 0c -6.627 0 -12 5.372 -12 12c0 5.084 3.163 9.426 7.627 11.174c -0.105 -0.949 -0.2 -2.405 0.042 -3.441c0.218 -0.937 1.407 -5.965 1.407 -5.965s -0.359 -0.719 -0.359 -1.782c0 -1.668 0.967 -2.914 2.171 -2.914c1.023 0 1.518 0.769 1.518 1.69c0 1.029 -0.655 2.568 -0.994 3.995c -0.283 1.194 0.599 2.169 1.777 2.169c2.133 0 3.772 -2.249 3.772 -5.495c0 -2.873 -2.064 -4.882 -5.012 -4.882c -3.414 0 -5.418 2.561 -5.418 5.207c0 1.031 0.397 2.138 0.893 2.738c0.098 0.119 0.112 0.224 0.083 0.345c -0.091 0.378 -0.293 1.189 -0.332 1.355c -0.053 0.218 -0.174 0.265 -0.4 0.159c -1.492 -0.694 -2.424 -2.875 -2.424 -4.627c0 -3.771 2.74 -7.24 7.913 -7.24c4.157 0 7.39 2.963 7.39 6.931c0 4.136 -2.607 7.464 -6.227 7.464c -1.216 0 -2.359 -0.631 -2.75 -1.378c0 0 -0.601 2.288 -0.744 2.84c -0.269 1.035 -0.997 2.334 -1.485 3.129c1.115 0.347 2.293 0.535 3.514 0.535c6.627 0 12 -5.373 12 -12c0 -6.628 -5.373 -12 -12 -12z" />
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+       <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
       </svg>
+
     ),
   },
 ]
@@ -97,22 +93,6 @@ export function Footer() {
             </ul>
           </div>
           
-          {/* Discover Links */}
-          <div>
-            <h4 className="font-medium mb-4 text-[#B8860B]">DISCOVER</h4>
-            <ul className="space-y-3">
-              {discoverLinks.map((link) => (
-                <li key={link.name}>
-                  <Link
-                    href={link.href}
-                    className="text-gray-400 hover:text-white transition-colors text-sm"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
           
           {/* Contact Info */}
           <div>
@@ -128,16 +108,8 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-gray-500 text-sm">
-            © 2024 Lumina Jewels. All rights reserved.
+            © 2026 Lumina Jewels. All rights reserved.
           </p>
-          <div className="flex gap-6">
-            <Link href="/privacy" className="text-gray-500 hover:text-white transition-colors text-sm">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="text-gray-500 hover:text-white transition-colors text-sm">
-              Terms of Service
-            </Link>
-          </div>
         </div>
       </div>
     </footer>

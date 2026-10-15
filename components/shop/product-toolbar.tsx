@@ -13,14 +13,18 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-export function ProductToolbar() {
+interface ProductToolbarProps {
+  totalCount?: number
+}
+
+export function ProductToolbar({ totalCount }: ProductToolbarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const handleSortChange = (value: string | null) => {
     if (!value) return
-    const params = new URLSearchParams(searchParams)
+    const params = new URLSearchParams(searchParams.toString())
     params.set("sort", value)
     params.delete("page")
     router.push(`${pathname}?${params.toString()}`)
@@ -29,26 +33,30 @@ export function ProductToolbar() {
   return (
     <div className="flex w-full items-center justify-between gap-4 py-3 mb-6 bg-transparent z-20">
       <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
-        <LayoutGrid className="size-4" />
-        <span>Filters applied</span>
+        <LayoutGrid className="size-4 text-[#B88E2F]" />
+        <span>
+          {typeof totalCount === "number"
+            ? `${totalCount} ${totalCount === 1 ? "piece" : "pieces"} found`
+            : "Filters applied"}
+        </span>
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-3">
         {/* Sort */}
         <Select defaultValue={searchParams.get("sort") || "popular"} onValueChange={handleSortChange}>
-          <SelectTrigger className="w-[150px] rounded-full bg-white h-10 border-primary/10 shadow-sm font-medium">
+          <SelectTrigger className="w-[170px] rounded-full bg-white h-10 border-primary/10 shadow-sm font-medium text-xs sm:text-sm hover:border-[#B88E2F]/50 transition-colors">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
-          <SelectContent className="rounded-xl">
+          <SelectContent className="rounded-xl shadow-lg border-primary/10">
             <SelectItem value="popular">Popular</SelectItem>
-            <SelectItem value="newest">Newest</SelectItem>
+            <SelectItem value="newest">Newest First</SelectItem>
             <SelectItem value="price-asc">Price: Low to High</SelectItem>
             <SelectItem value="price-desc">Price: High to Low</SelectItem>
           </SelectContent>
         </Select>
 
         {/* View Toggle */}
-        <div className="flex items-center gap-1 bg-white p-1 rounded-full border border-primary/10 shadow-sm">
+        <div className="hidden sm:flex items-center gap-1 bg-white p-1 rounded-full border border-primary/10 shadow-sm">
           <Button variant="ghost" size="icon" className="size-8 rounded-full bg-[#111827] text-white hover:bg-[#111827]/90 hover:text-white shadow-sm">
             <LayoutGrid className="size-4" />
           </Button>
@@ -61,39 +69,96 @@ export function ProductToolbar() {
   )
 }
 
-export function ShopHeader() {
+interface ShopHeaderProps {
+  totalCount?: number
+  currentCategory?: string
+  searchQuery?: string
+}
+
+export function ShopHeader({ totalCount = 0, currentCategory, searchQuery }: ShopHeaderProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const categoryTitles: Record<string, string> = {
+    ring: "Fine Rings",
+    necklace: "Necklaces & Pendants",
+    bracelet: "Bracelets & Bangles",
+    earring: "Earrings",
+    pendant: "Pendants",
+    bangle: "Bangles",
+    set: "Jewelry Sets",
+  }
+
+  const title = currentCategory
+    ? categoryTitles[currentCategory] || `${currentCategory.charAt(0).toUpperCase() + currentCategory.slice(1)}`
+    : searchQuery
+    ? `Results for "${searchQuery}"`
+    : "All Fine Jewelry"
+
+  const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = e.currentTarget
+    const input = form.elements.namedItem("q") as HTMLInputElement
+    const val = input.value.trim()
+    const params = new URLSearchParams(searchParams.toString())
+    if (val) {
+      params.set("q", val)
+    } else {
+      params.delete("q")
+    }
+    params.delete("page")
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
   return (
-    <div className="w-full flex flex-col gap-6 md:flex-row md:items-end justify-between py-8 border-b border-primary/5 mb-8">
+    <div className="w-full flex flex-col gap-6 md:flex-row md:items-end justify-between py-8 border-b border-primary/10 mb-8">
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 text-[13px] text-muted-foreground font-medium uppercase tracking-wider">
-          <span className="hover:text-primary cursor-pointer transition-colors">Home</span>
+        <div className="flex items-center gap-2 text-[12px] sm:text-[13px] text-muted-foreground font-medium uppercase tracking-wider">
+          <a href="/" className="hover:text-[#B88E2F] transition-colors">Home</a>
           <span>/</span>
-          <span className="text-primary">All Jewelry</span>
+          <a href="/products" className="hover:text-[#B88E2F] transition-colors">Shop</a>
+          {currentCategory && (
+            <>
+              <span>/</span>
+              <span className="text-[#B88E2F] capitalize">{currentCategory}</span>
+            </>
+          )}
         </div>
-        <h1 className="text-4xl md:text-5xl font-semibold tracking-tight font-serif text-[#111827]">All Jewelry</h1>
-        <p className="text-muted-foreground">8 pieces</p>
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight font-serif text-[#111827] capitalize">
+          {title}
+        </h1>
+        <p className="text-muted-foreground text-sm font-medium">
+          {totalCount} {totalCount === 1 ? "handcrafted piece" : "handcrafted pieces"}
+        </p>
       </div>
 
       <div className="flex items-center gap-3">
         {/* Search */}
-        <div className="relative w-full md:w-[320px]">
+        <form onSubmit={handleSearchSubmit} className="relative w-full md:w-[320px]">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input 
+            name="q"
+            defaultValue={searchQuery || ""}
             type="search" 
-            placeholder="Search jewelry..." 
-            className="w-full pl-11 rounded-full bg-white border-primary/10 h-11 shadow-sm focus-visible:ring-[#F59E0B]" 
+            placeholder="Search catalog..." 
+            className="w-full pl-11 rounded-full bg-white border-primary/15 h-11 shadow-sm focus-visible:ring-[#B88E2F]" 
           />
-        </div>
+        </form>
 
         {/* Action Buttons */}
-        <Button variant="outline" className="hidden md:flex rounded-full gap-2 bg-[#FCFBF9] border-[#F59E0B]/30 text-[#B88E2F] hover:bg-[#F59E0B]/10 hover:text-[#B88E2F] h-11 px-5 shadow-sm">
-          <ScanLine className="size-4" />
-          <span className="font-semibold">Visual</span>
-        </Button>
-        <Button className="hidden md:flex rounded-full gap-2 bg-[#111827] text-white hover:bg-[#111827]/90 h-11 px-5 shadow-sm">
-          <Sparkles className="size-4 text-[#F59E0B]" />
-          <span className="font-semibold">AI Search</span>
-        </Button>
+        <a href="/visual-search" className="hidden md:flex">
+          <Button type="button" variant="outline" className="rounded-full gap-2 bg-[#FCFBF9] border-[#B88E2F]/30 text-[#B88E2F] hover:bg-[#B88E2F]/10 hover:text-[#B88E2F] h-11 px-5 shadow-sm transition-all duration-200">
+            <ScanLine className="size-4" />
+            <span className="font-semibold text-sm">Visual</span>
+          </Button>
+        </a>
+        <a href="/ai-stylist" className="hidden md:flex">
+          <Button type="button" className="rounded-full gap-2 bg-[#111827] text-white hover:bg-[#111827]/90 h-11 px-5 shadow-sm transition-all duration-200">
+            <Sparkles className="size-4 text-[#F59E0B]" />
+            <span className="font-semibold text-sm">AI Stylist</span>
+          </Button>
+        </a>
       </div>
     </div>
   )

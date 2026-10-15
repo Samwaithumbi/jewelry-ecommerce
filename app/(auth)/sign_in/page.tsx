@@ -16,8 +16,6 @@ export default function SignIn() {
     }
   }, [session, router])
 
-  console.log(process.env.NEXTAUTH_URL)
-
   const [success, setSuccess] = useState(false)
 
   if (session) return null;
@@ -46,8 +44,7 @@ export default function SignIn() {
           <div className="auth-panel">
             <div className="auth-panel-inner">
               <div>
-                <div className="auth-panel-logo">MAISON DORÉE</div>
-                <div className="auth-panel-tagline">Timeless Elegance</div>
+                <div className="auth-panel-logo">Lumina Jewels</div>
               </div>
 
               <div className="auth-quote">
@@ -55,7 +52,7 @@ export default function SignIn() {
                 <p className="auth-quote-text">
                   "Jewelry is like a biography. It tells the story of who you are, where you've been, and where you're going."
                 </p>
-                <span className="auth-quote-author">— Maison Dorée</span>
+                <span className="auth-quote-author">— Lumina Jewels</span>
               </div>
 
               <ul className="auth-trust-list">
@@ -73,9 +70,7 @@ export default function SignIn() {
                 </li>
               </ul>
 
-              <div className="auth-panel-rating">
-                ★★★★★ Trusted by 50,000+ customers
-              </div>
+              
             </div>
           </div>
 

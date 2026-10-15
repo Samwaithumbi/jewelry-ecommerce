@@ -64,9 +64,9 @@ export function ProductClient({
   const engravingPrice = (engravingText && engravingFont) ? ENGRAVING_PRICE_CENTS : 0
   const totalPrice = (basePriceCents + metalPriceCents + variantAdjust + engravingPrice) * quantity
   
-  const formatter = new Intl.NumberFormat("en-US", {
+  const formatter = new Intl.NumberFormat("en-KE", {
     style: "currency",
-    currency: "USD",
+    currency: "KES",
     minimumFractionDigits: 0,
   })
 
@@ -171,7 +171,7 @@ export function ProductClient({
             {engravingPrice > 0 && (
               <div className="flex items-center justify-between text-sm pt-2 border-t border-primary/10">
                 <span className="text-muted-foreground">Engraving</span>
-                <span className="font-medium text-[#111827]">+${(engravingPrice / 100).toFixed(2)}</span>
+                <span className="font-medium text-[#111827]">KSh {(engravingPrice / 100).toFixed(0)}</span>
               </div>
             )}
           </div>
@@ -238,43 +238,68 @@ export function ProductClient({
         {/* Quantity & Actions */}
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-4">
-            <div className="flex items-center border border-primary/20 rounded-full h-12 bg-white">
+            <div className="flex items-center border border-primary/20 rounded-full h-12 bg-white px-1">
               <button 
-                className="w-12 h-full flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-50"
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                type="button"
+                aria-label="Decrease quantity"
+                className="w-10 h-full flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+                onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
                 disabled={isOutOfStock || quantity <= 1}
               >
                 <Minus className="size-4" />
               </button>
-              <span className="w-8 text-center font-medium text-sm">
+              <span className="w-10 text-center font-semibold text-sm select-none text-[#111827]">
                 {quantity}
               </span>
               <button 
-                className="w-12 h-full flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-50"
-                onClick={() => setQuantity(Math.min(currentVariant?.stockQty || 1, quantity + 1))}
-                disabled={isOutOfStock || (currentVariant && quantity >= currentVariant.stockQty)}
+                type="button"
+                aria-label="Increase quantity"
+                className="w-10 h-full flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+                onClick={() => setQuantity((prev) => {
+                  const maxAllowed = currentVariant && currentVariant.stockQty > 0 ? currentVariant.stockQty : 99
+                  return Math.min(maxAllowed, prev + 1)
+                })}
+                disabled={isOutOfStock || (Boolean(currentVariant && currentVariant.stockQty > 0) && quantity >= (currentVariant?.stockQty || 99))}
               >
                 <Plus className="size-4" />
               </button>
             </div>
             
             <Button
-              className="flex-1 h-12 rounded-full bg-[#111827] text-white hover:bg-[#111827]/90 shadow-sm text-base font-semibold"
+              type="button"
+              className="flex-1 h-12 rounded-full bg-[#111827] text-white hover:bg-[#111827]/90 shadow-sm text-base font-semibold transition-all hover:shadow-md"
               disabled={isOutOfStock || isPending}
               onClick={handleAddToCart}
             >
               {isPending ? (
                 <Loader2 className="size-5 mr-2 animate-spin" />
+              ) : isOutOfStock ? (
+                "Out of Stock"
               ) : (
                 <ShoppingCart className="size-5 mr-2" />
               )}
-              Add to Cart
+              {!isOutOfStock && !isPending && "Add to Cart"}
             </Button>
             
             <Button
+              type="button"
               variant="outline"
               size="icon"
-              className="size-12 rounded-full border-primary/20 bg-white text-muted-foreground hover:text-red-500 hover:border-red-200 transition-colors"
+              disabled={isPending}
+              onClick={() => {
+                startTransition(async () => {
+                  try {
+                    const { addToWishlist } = await import("@/app/actions/wishlist/add-to-wishlist")
+                    await addToWishlist(productId, currentVariant?.id)
+                    // Dispatch wishlist update event
+                    window.dispatchEvent(new Event('wishlist-update'))
+                  } catch (e) {
+                    console.error(e)
+                  }
+                })
+              }}
+              className="size-12 rounded-full border-primary/20 bg-white text-muted-foreground hover:text-red-500 hover:border-red-200 transition-all hover:scale-105 shadow-sm"
+              aria-label="Save to wishlist"
             >
               <Heart className="size-5" />
             </Button>

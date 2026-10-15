@@ -7,7 +7,7 @@ import { Search, Filter, Plus, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { products, productImages } from "@/drizzle/src/db/schema";
-import { ProductTableActions } from "@/components/product-table-actions";
+import { ProductTableActions } from "@/components/products/product-table-actions";
 import { eq } from "drizzle-orm";
 
 export default async function Products() {
@@ -34,13 +34,13 @@ export default async function Products() {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-6xl mx-auto p-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between gap-5 items-center">
         <div>
           <h1 className="text-3xl font-serif text-slate-900 tracking-tight">Product Management</h1>
           <p className="text-slate-500 mt-1">{productsList.length} products in catalog</p>
         </div>
         <Link href="/admin-dashboard/products/new">
-          <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-full px-6 flex items-center gap-2">
+          <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-full px-4 flex items-center gap-2">
             <Plus className="w-4 h-4" /> Add Product
           </Button>
         </Link>

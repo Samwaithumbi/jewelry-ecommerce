@@ -13,7 +13,7 @@
 
 import { db } from '../db';
 import { payments, orders } from '../../drizzle/src/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { PaymentStatus, PaymentProvider, ExtractedCallbackData } from './types';
 import {
   OrderNotFoundError,
@@ -21,6 +21,8 @@ import {
   PaymentNotFoundError,
   InvalidAmountError,
   DuplicateCallbackError,
+  InvalidCallbackError,
+  AmountMismatchError,
 } from './errors';
 import { formatTransactionDate, determinePaymentStatus } from './callback';
 import { 
@@ -29,6 +31,17 @@ import {
   InvalidReservationStateError,
   ReservationNotFoundError 
 } from '../inventory/service';
+
+export interface DarajaQueryResponse {
+  ResponseCode?: string;
+  ResponseDescription?: string;
+  MerchantRequestID?: string;
+  CheckoutRequestID?: string;
+  ResultCode?: string | number;
+  resultCode?: string | number;
+  ResultDesc?: string;
+  MpesaReceiptNumber?: string;
+}
 
 /**
  * Create a new payment record
@@ -137,8 +150,8 @@ export async function verifyOrderPayable(orderId: string, userId?: string) {
     throw new OrderNotFoundError(orderId);
   }
 
-  // Check authorization if userId provided
-  if (userId && order.userId !== userId) {
+  // Check authorization if order belongs to a registered user
+  if (order.userId && order.userId !== userId) {
     throw new OrderNotFoundError(orderId); // Return not found for security
   }
 
@@ -199,60 +212,79 @@ export async function updatePaymentWithStkPushIdentifiers(
  * @throws PaymentNotFoundError if payment not found
  */
 export async function processPaymentCallback(callbackData: ExtractedCallbackData) {
-  // Find payment by checkout request ID
+  // 1. Find payment by checkout request ID
   const payment = await getPaymentByCheckoutRequestId(callbackData.checkoutRequestId);
 
   if (!payment) {
     throw new PaymentNotFoundError(callbackData.checkoutRequestId);
   }
 
-  // Idempotency check: if payment is already successful, do nothing
+  // Correlate callback identifiers
+  if (payment.merchantRequestId && callbackData.merchantRequestId !== payment.merchantRequestId) {
+    throw new InvalidCallbackError('MerchantRequestID does not match payment record');
+  }
+
+  // Idempotency check: if payment is already successful, do not re-process
   if (payment.status === PaymentStatus.SUCCESS) {
     throw new DuplicateCallbackError(callbackData.checkoutRequestId);
   }
 
-  // Determine payment status (ResultCode may be number 0 or string "0")
-  const status = determinePaymentStatus(callbackData.resultCode);
+  // Format transaction date if present
+  const transactionDate = formatTransactionDate(callbackData.transactionDate);
+  const rawStatus = determinePaymentStatus(callbackData.resultCode);
 
-    // #endregion
+  let finalStatus: PaymentStatus = rawStatus;
 
-    // Format transaction date
-    const transactionDate = formatTransactionDate(callbackData.transactionDate);
+  // 2. Trust the callback as the authoritative source of truth.
+  // The STK callback is sent server-to-server by Safaricom — ResultCode: 0 is proof of payment.
+  // The Daraja query API is skipped because the sandbox consistently returns ResultCode 1032
+  // (cancelled) for successful transactions, making it an unreliable cross-check.
+  // Amount integrity is verified against the callback payload as the only additional guard.
+  if (rawStatus === PaymentStatus.SUCCESS) {
+    if (callbackData.amount !== undefined) {
+      // STK push sends Math.ceil(totalCents / 100) KSh to Daraja.
+      // The callback reports the actual KSh charged (a whole number).
+      // Compare in whole-KSh space so rounding is consistent on both sides.
+      const expectedKsh = Math.ceil(payment.amount / 100);
+      const reportedKsh = Math.round(callbackData.amount); // Daraja always sends whole KSh
+      if (reportedKsh !== expectedKsh) {
+        console.error(
+          `[Callback Validation] Amount mismatch! Expected Ksh ${expectedKsh}, callback reported Ksh ${reportedKsh}`
+        );
+        throw new AmountMismatchError(payment.amount, reportedKsh * 100);
+      }
+    }
+    finalStatus = PaymentStatus.SUCCESS;
+    console.log(`[Callback] Payment confirmed SUCCESS — receipt: ${callbackData.mpesaReceiptNumber}`);
+  }
 
-    // Use database transaction for atomic updates
-    // Note: Neon HTTP doesn't support transactions, so we'll use sequential updates
-    // For production with transaction support, use: db.transaction(async (tx) => { ... })
+  // 4. Update payment record
+  const updatedPayment = await db
+    .update(payments)
+    .set({
+      status: finalStatus,
+      mpesaReceiptNumber: callbackData.mpesaReceiptNumber || null,
+      resultCode: String(callbackData.resultCode),
+      resultDescription: callbackData.resultDescription,
+      transactionDate: transactionDate ? new Date(transactionDate) : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(payments.id, payment.id))
+    .returning();
 
-    // Update payment
-    const updatedPayment = await db
-      .update(payments)
-      .set({
-        status,
-        mpesaReceiptNumber: callbackData.mpesaReceiptNumber,
-        resultCode: String(callbackData.resultCode),
-        resultDescription: callbackData.resultDescription,
-        transactionDate: transactionDate ? new Date(transactionDate) : null,
-        updatedAt: new Date(),
-      })
-      .where(eq(payments.id, payment.id))
-      .returning();
-
-  // If payment successful, confirm reservation and update order status
-  if (status === PaymentStatus.SUCCESS) {
-    // Find and confirm the inventory reservation for this order
+  // 5. If confirmed SUCCESS: confirm inventory reservation and mark order confirmed
+  if (finalStatus === PaymentStatus.SUCCESS) {
     const { inventoryReservations } = await import('../../drizzle/src/db/inventory-schema');
     const reservation = await db.query.inventoryReservations.findFirst({
       where: eq(inventoryReservations.orderId, payment.orderId),
     });
 
-    if (reservation) {
+    if (reservation && reservation.status === 'active') {
       try {
         await confirmReservation(reservation.id);
-        console.log(`Confirmed reservation ${reservation.id} for order ${payment.orderId}`);
       } catch (error) {
         if (error instanceof InvalidReservationStateError || error instanceof ReservationNotFoundError) {
           console.warn(`Could not confirm reservation ${reservation.id}:`, error.message);
-          // Continue with order confirmation even if reservation is already processed
         } else {
           console.error(`Error confirming reservation ${reservation.id}:`, error);
           throw error;
@@ -263,33 +295,30 @@ export async function processPaymentCallback(callbackData: ExtractedCallbackData
     await db
       .update(orders)
       .set({
-        status: 'confirmed' as any, // Update to confirmed status
+        status: 'confirmed',
       })
       .where(eq(orders.id, payment.orderId));
 
     // Send confirmation email (async, non-blocking)
-    const { sendOrderConfirmationEmailAsync } = await import('@/lib/email');
+    const { sendOrderConfirmationEmailAsync } = await import('@/lib/emails/email');
     sendOrderConfirmationEmailAsync(payment.orderId).catch(error => {
       console.error('Failed to send confirmation email:', error);
     });
   }
 
-  // If payment failed, release reservation and update order status
-  if (status === PaymentStatus.FAILED || status === PaymentStatus.CANCELLED) {
-    // Find and release the inventory reservation for this order
+  // 6. If FAILED or CANCELLED: release inventory reservation and mark order cancelled
+  if (finalStatus === PaymentStatus.FAILED || finalStatus === PaymentStatus.CANCELLED) {
     const { inventoryReservations } = await import('../../drizzle/src/db/inventory-schema');
     const reservation = await db.query.inventoryReservations.findFirst({
       where: eq(inventoryReservations.orderId, payment.orderId),
     });
 
-    if (reservation) {
+    if (reservation && reservation.status === 'active') {
       try {
         await releaseReservation(reservation.id);
-        console.log(`Released reservation ${reservation.id} for order ${payment.orderId}`);
       } catch (error) {
         if (error instanceof InvalidReservationStateError || error instanceof ReservationNotFoundError) {
           console.warn(`Could not release reservation ${reservation.id}:`, error.message);
-          // Continue with order cancellation even if reservation is already processed
         } else {
           console.error(`Error releasing reservation ${reservation.id}:`, error);
           throw error;
@@ -304,10 +333,10 @@ export async function processPaymentCallback(callbackData: ExtractedCallbackData
       })
       .where(eq(orders.id, payment.orderId));
 
-    const { sendPaymentFailedEmailAsync } = await import('@/lib/email');
+    const { sendPaymentFailedEmailAsync } = await import('@/lib/emails/email');
     sendPaymentFailedEmailAsync(
       payment.orderId,
-      callbackData.resultDescription || 'Payment processing failed'
+      callbackData.resultDescription || 'Payment was not completed'
     ).catch(error => {
       console.error('Failed to send payment failed email:', error);
     });

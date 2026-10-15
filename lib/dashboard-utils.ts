@@ -5,13 +5,13 @@
 /**
  * Converts cents to formatted currency string
  * @param cents - Amount in cents
- * @returns Formatted currency string (e.g., "KSh 8,420")
+ * @returns Formatted currency string (e.g., "KSh 8,420", "KSh 0.03")
  */
 export function formatCurrency(cents: number): string {
   const amount = cents / 100
   return `KSh ${amount.toLocaleString('en-KE', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   })}`
 }
 

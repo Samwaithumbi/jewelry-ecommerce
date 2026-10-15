@@ -77,7 +77,7 @@ export interface CallbackResultBody {
  */
 export interface CallbackItem {
   Name: string;
-  Value?: string | null;
+  Value?: string | number | null;
 }
 
 /**
@@ -88,9 +88,9 @@ export interface DarajaCallback {
     stkCallback: {
       MerchantRequestID: string;
       CheckoutRequestID: string;
-      ResultCode: string;
+      ResultCode: string | number;
       ResultDesc: string;
-      CallbackMetadata: {
+      CallbackMetadata?: {
         Item: CallbackItem[];
       };
     };

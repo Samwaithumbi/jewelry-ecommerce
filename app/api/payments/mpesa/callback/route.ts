@@ -1,44 +1,78 @@
-/**
- * M-PESA Callback API Endpoint
- * 
- * POST /api/payments/mpesa/callback
- * 
- * This endpoint receives payment callbacks from Safaricom Daraja.
- * It processes the callback, updates the payment status, and updates the order.
- * 
- * CRITICAL: This endpoint must be idempotent. Daraja may send duplicate callbacks.
- * 
- * SECURITY:
- * - Callback structure is validated before processing
- * - Database transactions ensure consistency
- * - Idempotency prevents duplicate payment processing
- * - Sensitive callback data is not logged
- */
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
   isValidCallback,
   extractCallbackData,
-  isSuccessfulCallback,
-  isCancelledCallback,
-  getUserErrorMessage,
 } from '@/lib/mpesa/callback';
 import { processPaymentCallback } from '@/lib/mpesa/db';
-import { InvalidCallbackError, DuplicateCallbackError, toErrorResponse } from '@/lib/mpesa/errors';
+import {
+  InvalidCallbackError,
+  DuplicateCallbackError,
+  AmountMismatchError,
+  ReconciliationInconclusiveError,
+  PaymentNotFoundError,
+} from '@/lib/mpesa/errors';
+
+// Sliding-window in-memory rate limiter for callback endpoint protection
+const rateLimitMap = new Map<string, number[]>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 60;
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const timestamps = rateLimitMap.get(ip) || [];
+  const validTimestamps = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+
+  if (validTimestamps.length >= MAX_REQUESTS_PER_WINDOW) {
+    rateLimitMap.set(ip, validTimestamps);
+    return true;
+  }
+
+  validTimestamps.push(now);
+  rateLimitMap.set(ip, validTimestamps);
+
+  // Periodic map cleanup
+  if (rateLimitMap.size > 1000) {
+    for (const [key, list] of rateLimitMap.entries()) {
+      if (list.length === 0 || now - list[list.length - 1] > RATE_LIMIT_WINDOW_MS) {
+        rateLimitMap.delete(key);
+      }
+    }
+  }
+
+  return false;
+}
 
 /**
  * POST handler for Daraja callbacks
  */
 export async function POST(request: NextRequest) {
+  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+
+  if (isRateLimited(clientIp)) {
+    console.warn(`[M-Pesa Callback] Rate limit exceeded from IP: ${clientIp}`);
+    return NextResponse.json(
+      { ResultCode: '1', ResultDesc: 'Too many requests' },
+      { status: 429 }
+    );
+  }
+
   try {
-    // Parse callback body
-    const callback = await request.json();
+    let callback: unknown;
+    try {
+      callback = await request.json();
+    } catch {
+      return NextResponse.json(
+        { ResultCode: '1', ResultDesc: 'Invalid JSON payload' },
+        { status: 400 }
+      );
+    }
 
     // Validate callback structure
     if (!isValidCallback(callback)) {
-      console.error('Invalid callback structure received');
+      console.warn('[M-Pesa Callback] Invalid callback structure received');
       return NextResponse.json(
-        { success: false, error: 'Invalid callback structure' },
+        { ResultCode: '1', ResultDesc: 'Invalid callback structure' },
         { status: 400 }
       );
     }
@@ -46,67 +80,81 @@ export async function POST(request: NextRequest) {
     // Extract callback data
     const callbackData = extractCallbackData(callback);
 
-    console.log('Processing callback:', {
-      checkoutRequestId: callbackData.checkoutRequestId,
-      merchantRequestId: callbackData.merchantRequestId,
-      resultCode: callbackData.resultCode,
-    });
+    // Safe logging (sanitized: no customer phone numbers or secrets)
+    const sanitizedCheckoutId = callbackData.checkoutRequestId
+      ? `${callbackData.checkoutRequestId.slice(0, 12)}...`
+      : 'unknown';
+    console.log(
+      `[M-Pesa Callback] Processing notification: checkoutRequestId=${sanitizedCheckoutId}, ResultCode=${callbackData.resultCode}`
+    );
 
-   
-    fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'A',location:'app/api/payments/mpesa/callback/route.ts:POST',message:'Callback received',data:{rawResultCode:callback?.Body?.stkCallback?.ResultCode,rawResultCodeType:typeof callback?.Body?.stkCallback?.ResultCode,extractedResultCode:callbackData.resultCode,extractedResultCodeType:typeof callbackData.resultCode,strictEqZeroString:callbackData.resultCode==='0',numericEqZero:Number(callbackData.resultCode)===0,checkoutRequestId:callbackData.checkoutRequestId},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
-    // Process callback (idempotent)
+    // Process callback with authoritative Daraja reconciliation
     try {
-      const payment = await processPaymentCallback(callbackData);
+      await processPaymentCallback(callbackData);
 
-      console.log('Callback processed successfully:', {
-        paymentId: payment.id,
-        status: payment.status,
-      });
-
-      // Return success response to Daraja
+      // Return success acknowledgement to Daraja
       return NextResponse.json({
         ResultCode: '0',
-        ResultDesc: 'Callback processed successfully',
+        ResultDesc: 'Callback processed and reconciled successfully',
       });
 
     } catch (error) {
-      // Handle duplicate callback (idempotency)
+      // Handle duplicate callback idempotently
       if (error instanceof DuplicateCallbackError) {
-        console.log('Duplicate callback received, ignoring:', {
-          checkoutRequestId: callbackData.checkoutRequestId,
-        });
-
-        // Still return success to Daraja (don't retry)
+        console.log(`[M-Pesa Callback] Idempotent duplicate callback ignored: ${sanitizedCheckoutId}`);
         return NextResponse.json({
           ResultCode: '0',
           ResultDesc: 'Callback already processed',
         });
       }
 
-      // Re-throw other errors
+      // Handle amount tampering or mismatch
+      if (error instanceof AmountMismatchError) {
+        console.error(`[M-Pesa Callback Security Alert] ${error.message}`);
+        return NextResponse.json(
+          { ResultCode: '1', ResultDesc: 'Amount verification failed' },
+          { status: 400 }
+        );
+      }
+
+      // Handle payment record not found
+      if (error instanceof PaymentNotFoundError) {
+        console.warn(`[M-Pesa Callback] Payment record not found for: ${sanitizedCheckoutId}`);
+        return NextResponse.json(
+          { ResultCode: '1', ResultDesc: 'Payment record not found' },
+          { status: 404 }
+        );
+      }
+
+      // Handle inconclusive query (preserve pending state in DB, instruct Daraja to retry)
+      if (error instanceof ReconciliationInconclusiveError) {
+        console.warn(`[M-Pesa Callback] Inconclusive reconciliation for ${sanitizedCheckoutId}: ${error.message}`);
+        return NextResponse.json(
+          { ResultCode: '1', ResultDesc: 'Reconciliation inconclusive, pending retry' },
+          { status: 503 }
+        );
+      }
+
+      // Re-throw unexpected errors
       throw error;
     }
 
   } catch (error) {
-    // Handle invalid callback errors
     if (error instanceof InvalidCallbackError) {
-      console.error('Invalid callback:', error.message);
+      console.warn('[M-Pesa Callback] Invalid callback validation error:', error.message);
       return NextResponse.json(
-        { success: false, error: 'Invalid callback' },
+        { ResultCode: '1', ResultDesc: error.message },
         { status: 400 }
       );
     }
 
-    // Handle unexpected errors
-    console.error('Callback processing error:', error);
+    console.error('[M-Pesa Callback] Internal error processing callback:', error);
     
-    // Return error to Daraja (they may retry)
+    // Return error to Daraja (causes standard provider retry)
     return NextResponse.json(
       {
         ResultCode: '1',
-        ResultDesc: 'Callback processing failed',
+        ResultDesc: 'Internal error processing callback',
       },
       { status: 500 }
     );
@@ -114,14 +162,11 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET handler (for testing/debugging)
- * 
- * NOTE: This should be disabled in production or protected with authentication.
+ * GET handler - disabled in production for security
  */
-export async function GET(request: NextRequest) {
-  return NextResponse.json({
-    message: 'M-PESA callback endpoint is active',
-    method: 'POST',
-    purpose: 'Receives payment callbacks from Safaricom Daraja',
-  });
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Method Not Allowed' },
+    { status: 405 }
+  );
 }

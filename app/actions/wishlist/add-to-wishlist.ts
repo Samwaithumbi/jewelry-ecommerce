@@ -1,8 +1,8 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { wishlists } from "@/drizzle/src/db/schema"
-import { eq, and, or, isNull } from "drizzle-orm"
+import { wishlists, productVariants } from "@/drizzle/src/db/schema"
+import { eq, and, or, isNull, asc } from "drizzle-orm"
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { revalidatePath } from 'next/cache';
@@ -14,6 +14,19 @@ export async function addToWishlist(productId: string, variantId?: string, note?
   }
 
   try {
+    let targetVariantId = variantId;
+
+    // If variantId is not specified (e.g. added from product card), resolve default active variant
+    if (!targetVariantId) {
+      const defaultVariant = await db.query.productVariants.findFirst({
+        where: eq(productVariants.productId, productId),
+        orderBy: [asc(productVariants.size), asc(productVariants.sku)],
+      });
+      if (defaultVariant) {
+        targetVariantId = defaultVariant.id;
+      }
+    }
+
     // Check if item already exists in wishlist
     const existing = await db
       .select({ id: wishlists.id })
@@ -22,14 +35,21 @@ export async function addToWishlist(productId: string, variantId?: string, note?
         and(
           eq(wishlists.userId, session.user.id),
           eq(wishlists.productId, productId),
-          variantId
-            ? eq(wishlists.variantId, variantId)
+          targetVariantId
+            ? or(eq(wishlists.variantId, targetVariantId), isNull(wishlists.variantId))
             : isNull(wishlists.variantId)
         )
       )
       .limit(1);
 
     if (existing.length > 0) {
+      // If existing item was null variant, upgrade to the concrete variant
+      if (targetVariantId) {
+        await db
+          .update(wishlists)
+          .set({ variantId: targetVariantId })
+          .where(eq(wishlists.id, existing[0].id));
+      }
       return { success: true, message: 'Item already in wishlist' };
     }
 
@@ -37,7 +57,7 @@ export async function addToWishlist(productId: string, variantId?: string, note?
     await db.insert(wishlists).values({
       userId: session.user.id,
       productId,
-      variantId: variantId || null,
+      variantId: targetVariantId || null,
       note: note || null,
     });
 

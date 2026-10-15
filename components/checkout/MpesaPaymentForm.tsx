@@ -1,23 +1,7 @@
 'use client';
 
-/**
- * M-PESA Payment Form Component
- * 
- * This component provides a polished UI for M-PESA payments.
- * It handles:
- * - Phone number input with validation
- * - Payment initiation
- * - Status polling
- * - Success/failure states
- * - Retry functionality
- * 
- * SECURITY:
- * - Amount is displayed from props, never editable
- * - Payment status is determined by backend only
- * - No sensitive credentials are exposed
- */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,10 +25,14 @@ export function MpesaPaymentForm({
 }: MpesaPaymentFormProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [status, setStatus] = useState<PaymentStatus>('idle');
+  const statusRef = useRef<PaymentStatus>('idle');
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+
+  // Keep ref in sync with state so setTimeout callbacks always read the live status
+  useEffect(() => { statusRef.current = status; }, [status]);
 
   // Check payment status on mount if paymentId is provided
   useEffect(() => {
@@ -96,13 +84,14 @@ export function MpesaPaymentForm({
       try {
         const response = await fetch(`/api/payments/${paymentId}`);
         const data = await response.json();
-        // #region agent log
-        fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'E',location:'components/checkout/MpesaPaymentForm.tsx:poll',message:'Payment status poll',data:{httpStatus:response.status,success:data.success,status:data.status,error:data.error,paymentId},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
+
 
         if (data.success) {
           if (data.status === 'success') {
             setStatus('success');
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('cart-update'));
+            }
             onSuccess?.(paymentId);
             clearInterval(pollInterval);
             clearInterval(countdownInterval);
@@ -128,16 +117,16 @@ export function MpesaPaymentForm({
       }
     }, 3000); // Poll every 3 seconds
 
-    // Timeout after 15 minutes (matches payment expiry)
+    // Timeout after 1 minute — use statusRef to avoid stale closure
     const timeout = setTimeout(() => {
-      if (status === 'pending') {
+      if (statusRef.current === 'pending') {
         setStatus('failed');
         setError('Payment timed out. Please try again.');
         onFailure?.('Payment timed out');
         clearInterval(pollInterval);
         clearInterval(countdownInterval);
       }
-    }, 15 * 60 * 1000);
+    }, 1 * 60 * 1000);
 
     return () => {
       clearInterval(pollInterval);
@@ -179,14 +168,12 @@ export function MpesaPaymentForm({
 
       const data = await response.json();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'D',location:'components/checkout/MpesaPaymentForm.tsx:handleInitiatePayment',message:'STK client response',data:{httpStatus:response.status,success:data.success,error:data.error,paymentId:data.paymentId},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+
 
       if (data.success) {
         setPaymentId(data.paymentId);
         setStatus('pending');
-        setTimeRemaining(900); // 15 minutes
+        setTimeRemaining(60); // 1 minute
       } else {
         setStatus('failed');
         setError(data.error || 'Failed to initiate payment');

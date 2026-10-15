@@ -174,6 +174,34 @@ export class MpesaNetworkError extends MpesaError {
 }
 
 /**
+ * Amount mismatch error
+ */
+export class AmountMismatchError extends MpesaError {
+  constructor(expected: number, received: number) {
+    super(
+      `Payment amount mismatch: expected ${expected} cents, received ${received} cents`,
+      'AMOUNT_MISMATCH',
+      'Payment amount verification failed'
+    );
+    this.name = 'AmountMismatchError';
+  }
+}
+
+/**
+ * Reconciliation inconclusive error (when Daraja query is unavailable or pending)
+ */
+export class ReconciliationInconclusiveError extends MpesaError {
+  constructor(message: string) {
+    super(
+      `Daraja reconciliation inconclusive: ${message}`,
+      'RECONCILIATION_INCONCLUSIVE',
+      'Payment verification is pending'
+    );
+    this.name = 'ReconciliationInconclusiveError';
+  }
+}
+
+/**
  * Configuration error
  */
 export class MpesaConfigError extends MpesaError {

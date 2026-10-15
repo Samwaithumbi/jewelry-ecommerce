@@ -40,16 +40,19 @@ export function AIStylist() {
   ])
 
   return (
-    <section className="py-16 md:py-24 bg-gradient-to-b from-gray-50 to-white">
+    <section className="py-16 md:py-24 bg-gray-950 text-whi">
       <div className="container mx-auto px-6 lg:px-12">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left Side - Features */}
           <div>
-            <div className="inline-flex items-center gap-2 bg-[#B8860B]/10 text-[#B8860B] px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <Sparkles className="w-4 h-4" />
-              <span>Lumina AI Stylist</span>
+            <div className="flex gap-3">
+              <div className="inline-flex items-center gap-2 bg-[#B8860B]/10 text-[#B8860B] px-4 py-2 rounded-full text-sm font-medium mb-6">
+                <Sparkles className="w-4 h-4" />
+                <span>Lumina AI Stylist</span>
+              </div>
+              <span className="text-xs text-green-600 mt-2">(coming soon)</span>
             </div>
-            
+
             <h2 className="text-3xl md:text-4xl font-playfair-display text-gray-900 mb-6">
               Meet Your Personal Jewelry Stylist
             </h2>

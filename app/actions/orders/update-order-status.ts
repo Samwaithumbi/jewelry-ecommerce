@@ -4,10 +4,12 @@
  * Server Action: Update Order Status
  * 
  * Updates order status with validation and triggers email notifications
+ * CRITICAL: Also handles inventory commitment/release based on status changes
  */
 
 import { db } from '@/lib/db';
-import { orders, users } from '@/drizzle/src/db/schema';
+import { orders } from '@/drizzle/src/db/schema';
+import { inventoryReservations, inventoryReservationItems } from '@/drizzle/src/db/inventory-schema';
 import { eq } from 'drizzle-orm';
 import { 
   isValidStatusTransition, 
@@ -18,9 +20,15 @@ import {
   sendPaymentFailedEmailAsync,
   sendOrderShippedEmail, 
   sendOrderDeliveredEmail 
-} from '@/lib/email';
+} from '@/lib/emails/email';
 import { getCustomerData } from '@/lib/customer-data';
 import { getOrderItems } from '@/lib/order-items';
+import { 
+  confirmReservation, 
+  releaseReservation, 
+  returnInventory 
+} from '@/lib/inventory/service';
+import { requireAdminSession } from '@/lib/auth-guard';
 
 interface UpdateOrderStatusParams {
   orderId: string;
@@ -31,6 +39,7 @@ interface UpdateOrderStatusParams {
 }
 
 export async function updateOrderStatus(params: UpdateOrderStatusParams) {
+  await requireAdminSession();
   try {
     const { orderId, newStatus, trackingNumber, carrier, estimatedDelivery } = params;
 
@@ -66,8 +75,77 @@ export async function updateOrderStatus(params: UpdateOrderStatusParams) {
       };
     }
 
+    // Get reservation for this order to handle inventory
+    const reservation = await db.query.inventoryReservations.findFirst({
+      where: eq(inventoryReservations.orderId, orderId),
+    });
+
+
+    // CRITICAL: Handle inventory based on status transition
+    // This ensures stock levels are accurate and prevents overselling
+    
+    // CASE 1: Confirm/Ship/Deliver order - Commit inventory (decrease onHand, decrease reserved)
+    if ((newStatus === 'confirmed' || newStatus === 'shipped' || newStatus === 'delivered') && reservation && reservation.status === 'active') {
+      try {
+        await confirmReservation(reservation.id, 'system');
+      } catch (error) {
+        console.error(`[Inventory] ✗ Failed to commit inventory for order ${orderId}:`, error);
+        return { 
+          success: false, 
+          error: `Failed to commit inventory: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        };
+      }
+    } else if ((newStatus === 'confirmed' || newStatus === 'shipped' || newStatus === 'delivered') && reservation && reservation.status === 'confirmed') {
+      // Already confirmed, nothing to do
+    } else if ((newStatus === 'confirmed' || newStatus === 'shipped' || newStatus === 'delivered') && !reservation) {
+      console.warn(`[Inventory] No reservation found for order ${orderId}, skipping inventory commitment`);
+    }
+
+    // CASE 2: Cancel order - Release reservation (decrease reserved only, no change to onHand)
+    if (newStatus === 'cancelled' && reservation && reservation.status === 'active') {
+      try {
+        await releaseReservation(reservation.id);
+      } catch (error) {
+        console.error(`[Inventory] ✗ Failed to release reservation for order ${orderId}:`, error);
+        // Don't fail the order update, just log the error
+      }
+    }
+
+    // CASE 3: Refund order - Return inventory to stock (increase onHand)
+    if (newStatus === 'refunded' && reservation && reservation.status === 'confirmed') {
+      try {
+        
+        // Get all reservation items to know what to return
+        const items = await db.query.inventoryReservationItems.findMany({
+          where: eq(inventoryReservationItems.reservationId, reservation.id),
+        });
+
+
+        // Return each item to inventory
+        for (const item of items) {
+          await returnInventory(
+            item.variantId,
+            item.locationId,
+            item.quantity,
+            orderId,
+            'system'
+          );
+        }
+        
+      } catch (error) {
+        console.error(`[Inventory] ✗ Failed to return inventory for order ${orderId}:`, error);
+        // Don't fail the order update, just log the error
+      }
+    }
+
     // Prepare update data
-    const updateData: any = {
+    const updateData: {
+      status: OrderStatus;
+      shippedAt?: Date;
+      trackingNumber?: string;
+      carrier?: string;
+      deliveredAt?: Date;
+    } = {
       status: newStatus,
     };
 

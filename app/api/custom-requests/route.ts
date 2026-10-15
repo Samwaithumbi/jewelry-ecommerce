@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
-import { sendCustomRequestNotification } from '@/lib/email';
+import { sendCustomRequestNotification } from '@/lib/emails/email';
 import { randomUUID } from 'crypto';
 
 const sql = neon(process.env.DATABASE_URL!);

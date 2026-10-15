@@ -11,10 +11,9 @@
  * - Credentials are encoded using Base64
  */
 
-import { getOAuthUrl, getMpesaConfig, isMock } from './config';
+import { getOAuthUrl, getMpesaConfig } from './config';
 import { DarajaAuthError, MpesaNetworkError } from './errors';
 import { DarajaOAuthResponse } from './types';
-import { mockGetOAuthToken } from './mock-stk-push';
 
 /**
  * In-memory cache for access token
@@ -52,19 +51,6 @@ function generateBase64Credentials(): string {
  */
 export async function getAccessToken(): Promise<string> {
   const config = getMpesaConfig();
-
-  // Use mock implementation in mock mode
-  if (isMock()) {
-    const mockToken = await mockGetOAuthToken();
-    
-    // Cache the mock token
-    tokenCache = {
-      token: mockToken.accessToken,
-      expiresAt: Date.now() + mockToken.expiresIn * 1000,
-    };
-    
-    return mockToken.accessToken;
-  }
 
   // Check if we have a valid cached token
   if (tokenCache && tokenCache.expiresAt > Date.now()) {

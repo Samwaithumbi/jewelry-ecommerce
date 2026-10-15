@@ -29,8 +29,6 @@ import {
   Package, 
   Search, 
   Filter, 
-  ArrowUpDown,
-  MoreHorizontal,
   Eye,
   Truck
 } from 'lucide-react';

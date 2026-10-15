@@ -8,12 +8,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { orders, users } from '@/drizzle/src/db/schema';
-import { eq, desc, and, like, or, sql } from 'drizzle-orm';
+import { eq, desc, and, like, or, sql, SQL } from 'drizzle-orm';
 import { OrderStatus } from '@/lib/order-status';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 // GET /api/orders - List orders
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const isAdmin = (session.user as { role?: string } | undefined)?.role === 'admin';
+
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
     const search = searchParams.get('search');
@@ -25,7 +37,12 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Build query conditions
-    const conditions: any[] = [];
+    const conditions: SQL[] = [];
+
+    // Customers can only see their own orders; admins can see all
+    if (!isAdmin) {
+      conditions.push(eq(orders.userId, session.user.id));
+    }
 
     if (status) {
       conditions.push(eq(orders.status, status as OrderStatus));
@@ -35,8 +52,8 @@ export async function GET(request: NextRequest) {
       conditions.push(
         or(
           like(orders.orderNumber, `%${search}%`),
-          like(orders.shippingAddress as any, `%${search}%`)
-        )
+          sql`${orders.shippingAddress}::text ilike ${`%${search}%`}`
+        )!
       );
     }
 
@@ -104,6 +121,14 @@ export async function GET(request: NextRequest) {
 // PATCH /api/orders - Bulk update order status
 export async function PATCH(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || (session.user as { role?: string })?.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Admin access required' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { orderIds, status, trackingNumber, carrier, estimatedDelivery } = body;
 
@@ -122,12 +147,12 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Import email functions
-    const { sendOrderShippedEmail, sendOrderDeliveredEmail } = await import('@/lib/email');
+    const { sendOrderShippedEmail, sendOrderDeliveredEmail } = await import('@/lib/emails/email');
     const { getCustomerData } = await import('@/lib/customer-data');
     const { getTrackingUrl } = await import('@/lib/tracking');
 
     // Update each order
-    const results: any[] = [];
+    const results: Array<{ orderId: string; success: boolean; error?: string }> = [];
     for (const orderId of orderIds) {
       try {
         // Get current order
@@ -161,7 +186,13 @@ export async function PATCH(request: NextRequest) {
         }
 
         // Prepare update data
-        const updateData: any = { status };
+        const updateData: {
+          status: OrderStatus;
+          shippedAt?: Date;
+          trackingNumber?: string;
+          carrier?: string;
+          deliveredAt?: Date;
+        } = { status: status as OrderStatus };
 
         if (status === 'shipped') {
           updateData.shippedAt = new Date();

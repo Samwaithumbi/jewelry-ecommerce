@@ -1,23 +1,17 @@
 'use server';
 
-/**
- * Server Action: Create Order
- * 
- * This server action creates an order from the cart items.
- * It calculates totals, reserves inventory, and creates the order record in the database.
- * 
- * INTEGRATION: This now integrates with the inventory system to reserve stock
- * before the order is created and payment is initiated.
- */
 
 import { db } from '@/lib/db';
-import { orders, orderItems } from '@/drizzle/src/db/schema';
-import { eq } from 'drizzle-orm';
+import { orders, orderItems, products, productVariants } from '@/drizzle/src/db/schema';
+import { inventoryLevels, inventoryLocations } from '@/drizzle/src/db/inventory-schema';
+import { eq, and } from 'drizzle-orm';
 import { getCart } from '@/app/actions/cart/get-cart';
-import { Cart } from '@/types/cart';
-import { reserveInventory, InsufficientStockError } from '@/lib/inventory/service';
+import { redis } from '@/lib/redis';
+import { cartKey } from '@/lib/cart';
+import { getCartSessionId } from '@/lib/session';
+import { reserveInventory, releaseReservation, InsufficientStockError } from '@/lib/inventory/service';
 
-interface ShippingAddress {
+export interface ShippingAddress {
   fullName: string;
   phone: string;
   email: string;
@@ -27,43 +21,267 @@ interface ShippingAddress {
   country: string;
 }
 
-interface GiftOptions {
+export interface GiftOptions {
   isGiftWrap: boolean;
   giftMessage: string;
   shipAsGift: boolean;
 }
 
+export interface PriceChangeDetail {
+  productId: string;
+  variantId?: string;
+  name: string;
+  oldPriceCents: number;
+  newPriceCents: number;
+}
+
+export interface CreateOrderOptions {
+  confirmedPriceChanges?: boolean;
+}
+
+export interface CreateOrderResult {
+  success: boolean;
+  orderId?: string;
+  orderNumber?: string;
+  totalCents?: number;
+  reservationId?: string | null;
+  priceChanged?: boolean;
+  priceChanges?: PriceChangeDetail[];
+  error?: string;
+}
+
 export async function createOrderFromCart(
   userId?: string,
   shippingAddress?: ShippingAddress,
-  giftOptions?: GiftOptions
-) {
-  try {
-    // Get cart items
-    const cart = await getCart();
+  giftOptions?: GiftOptions,
+  options?: CreateOrderOptions
+): Promise<CreateOrderResult> {
+  let createdOrderId: string | null = null;
+  let reservationId: string | null = null;
 
-    if (!cart || cart.items.length === 0) {
-      throw new Error('Cart is empty');
+  try {
+    const sessionId = await getCartSessionId();
+    const cart = await getCart(sessionId);
+
+    if (!cart || !cart.items || cart.items.length === 0) {
+      return { success: false, error: 'Cart is empty' };
     }
 
-    // Calculate order totals
-    const subtotalCents = cart.items.reduce(
-      (acc, item) => acc + item.priceAtAdd * item.qty,
-      0
-    );
+    // 1. Validate quantities and fetch authoritative prices from PostgreSQL
+    const verifiedItems: Array<{
+      productId: string;
+      variantId?: string;
+      name: string;
+      qty: number;
+      authoritativeUnitPriceCents: number;
+      priceAtAddCents: number;
+      engravingText?: string | null;
+      engravingFont?: string | null;
+      engravingPriceCents?: number | null;
+    }> = [];
 
-    // For now, use fixed shipping and tax
-    // In production, calculate based on shipping address, location, etc.
-    const shippingCents = 0; // Free shipping for now
-    const giftWrapCents = giftOptions?.isGiftWrap ? 1200 : 0; // $12
-    const taxCents = Math.round((subtotalCents + giftWrapCents) * 0.16); // 16% VAT
-    const totalCents = subtotalCents + shippingCents + giftWrapCents + taxCents;
+    const priceChanges: PriceChangeDetail[] = [];
 
-    // Generate order number
+    for (const item of cart.items) {
+      // Validate quantity
+      if (!Number.isInteger(item.qty) || item.qty <= 0 || item.qty > 100) {
+        return {
+          success: false,
+          error: `Invalid quantity (${item.qty}) for item "${item.name || 'Unknown'}". Quantity must be between 1 and 100.`,
+        };
+      }
+
+      // Fetch authoritative product from DB
+      const dbProduct = await db.query.products.findFirst({
+        where: eq(products.id, item.productId),
+      });
+
+      if (!dbProduct) {
+        return {
+          success: false,
+          error: `Product "${item.name || item.productId}" is no longer available.`,
+        };
+      }
+
+      if (!dbProduct.active) {
+        return {
+          success: false,
+          error: `Product "${dbProduct.name}" is currently inactive and cannot be purchased.`,
+        };
+      }
+
+      let variantPriceAdjust = 0;
+
+      // Validate variant if specified
+      if (item.variantId) {
+        const dbVariant = await db.query.productVariants.findFirst({
+          where: and(
+            eq(productVariants.id, item.variantId),
+            eq(productVariants.productId, item.productId)
+          ),
+        });
+
+        if (!dbVariant) {
+          return {
+            success: false,
+            error: `Selected variant for "${dbProduct.name}" does not exist or has been removed.`,
+          };
+        }
+
+        if (!dbVariant.active) {
+          return {
+            success: false,
+            error: `Selected variant for "${dbProduct.name}" is no longer active.`,
+          };
+        }
+
+        variantPriceAdjust = dbVariant.priceAdjustCents || 0;
+      }
+
+      // Authoritative unit price in integer cents
+      const authoritativeUnitPrice = dbProduct.basePriceCents + variantPriceAdjust;
+
+      // Check if price changed since customer added item to cart
+      if (item.priceAtAdd !== authoritativeUnitPrice) {
+        priceChanges.push({
+          productId: item.productId,
+          variantId: item.variantId,
+          name: dbProduct.name,
+          oldPriceCents: item.priceAtAdd,
+          newPriceCents: authoritativeUnitPrice,
+        });
+      }
+
+      // Validate engraving price if applicable
+      const hasEngraving = Boolean(item.engravingText && item.engravingText.trim().length > 0);
+      const engravingPriceCents = hasEngraving && item.engravingPriceCents && item.engravingPriceCents > 0
+        ? Math.round(item.engravingPriceCents)
+        : null;
+
+      verifiedItems.push({
+        productId: item.productId,
+        variantId: item.variantId,
+        name: dbProduct.name,
+        qty: item.qty,
+        authoritativeUnitPriceCents: authoritativeUnitPrice,
+        priceAtAddCents: item.priceAtAdd,
+        engravingText: hasEngraving ? item.engravingText!.trim() : null,
+        engravingFont: item.engravingFont || null,
+        engravingPriceCents,
+      });
+    }
+
+    // 2. Enforce Price Change Integrity: Do not silently charge different amounts!
+    if (priceChanges.length > 0 && !options?.confirmedPriceChanges) {
+      // Update cart in Redis with updated prices so next view matches database reality
+      try {
+        const updatedCartItems = cart.items.map(item => {
+          const match = verifiedItems.find(
+            v => v.productId === item.productId && v.variantId === item.variantId
+          );
+          return match
+            ? { ...item, priceAtAdd: match.authoritativeUnitPriceCents }
+            : item;
+        });
+
+        await redis.set(
+          cartKey(sessionId),
+          { ...cart, items: updatedCartItems, updatedAt: new Date().toISOString() },
+          { ex: 60 * 60 * 24 * 7 }
+        );
+      } catch (redisErr) {
+        console.error('Failed to sync updated prices to Redis cart:', redisErr);
+      }
+
+      return {
+        success: false,
+        priceChanged: true,
+        priceChanges,
+        error: 'One or more item prices have changed since being added to your cart. Please review and confirm the updated prices before proceeding.',
+      };
+    }
+
+    // 3. Server-side totals calculation in integer minor units (cents)
+    let subtotalCents = 0;
+    for (const item of verifiedItems) {
+      const lineItemPrice = item.authoritativeUnitPriceCents * item.qty;
+      const lineEngravingPrice = item.engravingPriceCents ? item.engravingPriceCents * item.qty : 0;
+      subtotalCents += lineItemPrice + lineEngravingPrice;
+    }
+
+    const shippingCents = 0; // Free shipping
+    const giftWrapCents = giftOptions?.isGiftWrap ? 100 : 0; // Ksh 1 in cents
+    const discountCents = 0;
+    const taxableAmount = Math.max(0, subtotalCents + giftWrapCents - discountCents);
+    const taxCents = Math.round(taxableAmount * 0.16); // 16% VAT
+    const totalCents = subtotalCents + shippingCents + giftWrapCents + taxCents - discountCents;
+
+    if (totalCents <= 0) {
+      return { success: false, error: 'Calculated order total is invalid.' };
+    }
+
+    // 4. Pre-check stock levels at MAIN location before attempting reservation
+    const mainLocation = await db.query.inventoryLocations.findFirst({
+      where: eq(inventoryLocations.code, 'MAIN'),
+    });
+
+    if (mainLocation) {
+      for (const item of verifiedItems) {
+        if (item.variantId) {
+          const level = await db.query.inventoryLevels.findFirst({
+            where: and(
+              eq(inventoryLevels.variantId, item.variantId),
+              eq(inventoryLevels.locationId, mainLocation.id)
+            ),
+          });
+
+          const available = level ? level.onHand - level.reserved : 0;
+          if (available < item.qty) {
+            return {
+              success: false,
+              error: `Insufficient stock for "${item.name}": requested ${item.qty}, only ${available} available.`,
+            };
+          }
+        }
+      }
+    }
+
+    // 5. Atomic Reservation and Order Creation Boundaries
+    const orderId = crypto.randomUUID();
+    createdOrderId = orderId;
+
+    const reservationItems = verifiedItems
+      .filter(item => Boolean(item.variantId))
+      .map(item => ({
+        variantId: item.variantId!,
+        quantity: item.qty,
+      }));
+
+    if (reservationItems.length > 0) {
+      try {
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15-minute hold
+        reservationId = await reserveInventory({
+          orderId,
+          userId,
+          items: reservationItems,
+          expiresAt,
+        });
+      } catch (resError) {
+        if (resError instanceof InsufficientStockError) {
+          return {
+            success: false,
+            error: `Insufficient stock: ${resError.message}`,
+          };
+        }
+        throw resError;
+      }
+    }
+
+    // 6. Generate order number and persist order with immutable snapshots
     const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-    // Create order record
-    const order = await db.insert(orders).values({
+    const [createdOrder] = await db.insert(orders).values({
+      id: orderId,
       orderNumber,
       userId: userId || null,
       status: 'pending',
@@ -71,7 +289,7 @@ export async function createOrderFromCart(
       shippingCents,
       taxCents,
       giftWrapCents,
-      discountCents: 0,
+      discountCents,
       totalCents,
       shippingAddress: shippingAddress ? {
         name: shippingAddress.fullName,
@@ -96,71 +314,27 @@ export async function createOrderFromCart(
       hidePriceOnSlip: giftOptions?.shipAsGift || false,
     }).returning();
 
-    const createdOrder = order[0];
-
-    // Create order items from cart items
-    for (const item of cart.items) {
+    // 7. Store immutable price snapshots in orderItems
+    for (const item of verifiedItems) {
       await db.insert(orderItems).values({
+        id: crypto.randomUUID(),
         orderId: createdOrder.id,
         productId: item.productId,
         variantId: item.variantId || null,
         qty: item.qty,
-        priceCents: item.priceAtAdd,
+        priceCents: item.authoritativeUnitPriceCents, // Immutable authoritative price snapshot
         engravingText: item.engravingText || null,
         engravingFont: item.engravingFont || null,
         engravingPriceCents: item.engravingPriceCents || null,
       });
     }
 
-    // Reserve inventory for the order
-    // This is critical to prevent overselling
-    const reservationItems = cart.items
-      .filter(item => item.variantId) // Only reserve items with variants
-      .map(item => ({
-        variantId: item.variantId!,
-        quantity: item.qty,
-      }));
-
-    let reservationId: string | null = null;
-
-    if (reservationItems.length > 0) {
-      try {
-        // Reserve inventory for 15 minutes (same as payment expiry)
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-        
-        reservationId = await reserveInventory({
-          orderId: createdOrder.id,
-          userId,
-          items: reservationItems,
-          expiresAt,
-        });
-
-        console.log(`Reserved inventory for order ${createdOrder.id}, reservation ${reservationId}`);
-      } catch (error) {
-        if (error instanceof InsufficientStockError) {
-          // If stock is insufficient, cancel the order
-          await db.delete(orders).where(eq(orders.id, createdOrder.id));
-          await db.delete(orderItems).where(eq(orderItems.orderId, createdOrder.id));
-          
-          return {
-            success: false,
-            error: `Insufficient stock: ${error.message}`,
-          };
-        }
-        
-        // For other errors, log but continue (order created but inventory not reserved)
-        console.error('Failed to reserve inventory:', error);
-      }
-    }
-
-    // Clear cart after order creation
-    const { clearCart } = await import('@/app/actions/cart/clear-cart');
+    // 8. Clear cart after successful order creation & reservation
     try {
-      await clearCart();
-      console.log(`Cleared cart after order creation: ${createdOrder.id}`);
-    } catch (error) {
-      console.error('Failed to clear cart:', error);
-      // Don't throw - order is still created, cart clearing is nice-to-have
+      const { clearCart } = await import('@/app/actions/cart/clear-cart');
+      await clearCart(sessionId);
+    } catch (clearErr) {
+      console.warn('Failed to clear cart after order creation:', clearErr);
     }
 
     return {
@@ -172,6 +346,26 @@ export async function createOrderFromCart(
     };
   } catch (error) {
     console.error('Order creation error:', error);
+
+    // Rollback reservation if created but order failed
+    if (reservationId) {
+      try {
+        await releaseReservation(reservationId);
+      } catch (rollbackErr) {
+        console.error('Failed to release reservation during order creation rollback:', rollbackErr);
+      }
+    }
+
+    // Cleanup partial order records if inserted
+    if (createdOrderId) {
+      try {
+        await db.delete(orderItems).where(eq(orderItems.orderId, createdOrderId));
+        await db.delete(orders).where(eq(orders.id, createdOrderId));
+      } catch (dbCleanupErr) {
+        console.error('Failed to clean up partial order record:', dbCleanupErr);
+      }
+    }
+
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create order',

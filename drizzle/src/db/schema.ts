@@ -196,7 +196,7 @@ priceAdjustCents:   integer("price_adjust_cents").default(0),
     purity:           varchar("purity", { length: 5 }).notNull(),
     pricePerGramCents: integer("price_per_gram_cents").notNull(),
     spotPricePerOz:   decimal("spot_price_per_troy_oz", { precision: 10, scale: 4 }),
-    currency:         varchar("currency", { length: 3 }).default("USD").notNull(),
+    currency:         varchar("currency", { length: 3 }).default("KES").notNull(),
     updatedAt:        timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   });
   

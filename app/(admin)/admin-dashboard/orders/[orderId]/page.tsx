@@ -86,7 +86,7 @@ export default function OrderDetailPage() {
 
       if (data.success) {
         setOrder(data.order);
-        setItems(data.items);
+        setItems(data.items || data.order?.items || []);
         setNewStatus(data.order.status);
         setTrackingNumber(data.order.trackingNumber || '');
         setCarrier(data.order.carrier || '');

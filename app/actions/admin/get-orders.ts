@@ -4,11 +4,13 @@ import { db } from "@/lib/db"
 import { orders, orderItems, products } from "@/drizzle/src/db/schema"
 import { eq, inArray, desc, sql } from "drizzle-orm"
 import { formatCurrency } from "@/lib/dashboard-utils"
+import { requireAdminSession } from "@/lib/auth-guard"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export interface OrderDisplay {
-  id: string
+  id: string // Full UUID for routing
+  displayId: string // orderNumber or truncated ID for display
   customer: string
   item: string
   total: string
@@ -40,8 +42,8 @@ export async function getOrderItems(
   limit: number = 10,
   offset: number = 0
 ): Promise<OrderDisplay[]> {
+  await requireAdminSession()
   try {
-    console.log(`Fetching recent orders (limit: ${limit}, offset: ${offset})`)
 
     // Get recent orders with valid statuses
     const recentOrders = await db
@@ -49,6 +51,9 @@ export async function getOrderItems(
         id: orders.id,
         orderNumber: orders.orderNumber,
         totalCents: orders.totalCents,
+        subtotalCents: orders.subtotalCents,
+        shippingCents: orders.shippingCents,
+        taxCents: orders.taxCents,
         status: orders.status,
         shippingAddress: orders.shippingAddress,
         createdAt: orders.createdAt,
@@ -58,8 +63,6 @@ export async function getOrderItems(
       .orderBy(desc(orders.createdAt))
       .limit(limit)
       .offset(offset)
-
-    console.log(`Found ${recentOrders.length} recent orders`)
 
     if (recentOrders.length === 0) {
       return []
@@ -115,16 +118,21 @@ export async function getOrderItems(
       // Map status to display format
       const displayStatus = STATUS_MAP[order.status] || order.status
 
+      // Calculate total from components if totalCents is 0 (defensive measure)
+      const displayTotal = order.totalCents === 0
+        ? formatCurrency((order.subtotalCents || 0) + (order.shippingCents || 0) + (order.taxCents || 0))
+        : formatCurrency(order.totalCents)
+
       return {
-        id: order.orderNumber || order.id.slice(0, 8).toUpperCase(),
+        id: order.id, // Full UUID for routing
+        displayId: order.orderNumber || order.id.slice(0, 8).toUpperCase(), // For display
         customer: customerName,
         item: itemDisplay,
-        total: formatCurrency(order.totalCents),
+        total: displayTotal,
         status: displayStatus,
       }
     })
 
-    console.log('Orders transformed for display:', result.length)
     return result
 
   } catch (error) {

@@ -3,13 +3,13 @@ import { ArrowRight } from "lucide-react"
 import { getCategoryCounts } from "@/app/actions/home/get-category-counts"
 
 const categoryImages: Record<string, string> = {
-  ring: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=80&w=800&auto=format&fit=crop",
-  necklace: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?q=80&w=800&auto=format&fit=crop",
-  earring: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=80&w=800&auto=format&fit=crop",
-  bracelet: "https://images.unsplash.com/photo-1611591437281-460bfbe1220a?q=80&w=800&auto=format&fit=crop",
-  pendant: "https://images.unsplash.com/photo-1573408301185-9146fe634ad0?q=80&w=800&auto=format&fit=crop",
-  bangle: "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?q=80&w=800&auto=format&fit=crop",
-  set: "https://images.unsplash.com/photo-1630019852942-f89202989a59?q=80&w=800&auto=format&fit=crop",
+  ring: "/images/ring.jfif",
+  necklace: "/images/necklace.jfif",
+  earring: "/images/earring.jfif",
+  bracelet: "/images/bracelet.jfif",
+  pendant: "/images/pendant.webp",
+  bangle: "/images/bangle.jfif",
+  set: "/images/set.jfif",
 }
 
 export async function ShopByCategory() {

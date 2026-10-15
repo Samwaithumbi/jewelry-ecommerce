@@ -10,8 +10,11 @@ export async function updateQty(productId: string, variantId: string | undefined
     const sessionId = await getCartSessionId();
     const cart = await getCart(sessionId);
 
+    const norm = (val?: string | null) => (val ? val.trim() : "");
+    const targetVariantId = norm(variantId);
+
     const existingItemIndex = cart.items.findIndex(
-        (i) => i.productId === productId && i.variantId === variantId
+        (i) => i.productId === productId && norm(i.variantId) === targetVariantId
     );
 
     if (existingItemIndex > -1) {

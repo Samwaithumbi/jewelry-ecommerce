@@ -1,21 +1,9 @@
 'use client';
 
-/**
- * Perfect Checkout Page
- * 
- * A professional, polished checkout page with:
- * - Multi-step progress indicator
- * - Shipping address form
- * - Contact information
- * - Order summary with item details
- * - M-PESA payment integration
- * - Mobile responsive design
- * - Loading states and error handling
- */
-
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCart } from '@/app/actions/cart/get-cart';
+import { clearCart } from '@/app/actions/cart/clear-cart';
 import { createOrderFromCart } from '@/app/actions/checkout/create-order';
 import { Cart } from '@/types/cart';
 import { MpesaPaymentForm } from '@/components/checkout/MpesaPaymentForm';
@@ -29,12 +17,21 @@ type CheckoutStep = 'shipping' | 'payment' | 'review';
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const [userId, setUserId] = useState<string | undefined>(undefined);
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('shipping');
   const [orderId, setOrderId] = useState<string | null>(null);
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
+
+  // Fetch session without requiring SessionProvider
+  useEffect(() => {
+    fetch('/api/auth/session')
+      .then(r => r.json())
+      .then(s => { if (s?.user?.id) setUserId(s.user.id) })
+      .catch(() => {})
+  }, [])
 
   // Shipping form state
   const [shippingForm, setShippingForm] = useState({
@@ -56,7 +53,7 @@ export default function CheckoutPage() {
     shipAsGift: false,
   });
 
-  const GIFT_WRAP_COST = 1200; // $12 in cents
+  const GIFT_WRAP_COST = 100;
 
   useEffect(() => {
     const fetchCart = async () => {
@@ -68,8 +65,16 @@ export default function CheckoutPage() {
     fetchCart();
   }, []);
 
+  const formatKsh = (cents: number) => {
+    const ksh = (cents || 0) / 100;
+    if (ksh > 0 && ksh < 1) {
+      return ksh.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    return ksh.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  };
+
   const totalItems = cart?.items.reduce((acc, item) => acc + item.qty, 0) || 0;
-  const subtotal = cart?.items.reduce((acc, item) => acc + (item.priceAtAdd * item.qty), 0) || 0;
+  const subtotal = cart?.items.reduce((acc, item) => acc + (((item.priceAtAdd ?? (item as any).price) || 0) * item.qty), 0) || 0;
   const shipping = 0; // Free shipping
   const giftWrapCost = giftOptions.isGiftWrap ? GIFT_WRAP_COST : 0;
   const tax = Math.round((subtotal + giftWrapCost) * 0.16); // 16% VAT
@@ -111,16 +116,33 @@ export default function CheckoutPage() {
     }
   };
 
+  const [priceChanged, setPriceChanged] = useState(false);
+  const [priceChangesList, setPriceChangesList] = useState<any[]>([]);
+
   // Create order when moving to payment
-  const handleCreateOrder = async () => {
+  const handleCreateOrder = async (confirmed = false) => {
     setOrderLoading(true);
     setOrderError(null);
+    if (!confirmed) {
+      setPriceChanged(false);
+      setPriceChangesList([]);
+    }
 
     try {
-      const result = await createOrderFromCart(undefined, shippingForm, giftOptions);
+      const result = await createOrderFromCart(userId, shippingForm, giftOptions, {
+        confirmedPriceChanges: confirmed,
+      });
       
       if (result.success && result.orderId) {
         setOrderId(result.orderId);
+        setPriceChanged(false);
+      } else if (result.priceChanged) {
+        setPriceChanged(true);
+        setPriceChangesList(result.priceChanges || []);
+        setOrderError(result.error || 'Prices have changed since items were added to your cart.');
+        // Refresh cart in state to reflect updated prices
+        const refreshedCart = await getCart();
+        setCart(refreshedCart);
       } else {
         setOrderError(result.error || 'Failed to create order');
       }
@@ -139,11 +161,7 @@ export default function CheckoutPage() {
 
   // Handle payment success
   const handlePaymentSuccess = (paymentId: string) => {
-    console.log('Payment successful:', paymentId);
     const successPath = `/checkout/success?orderId=${orderId}`;
-    // #region agent log
-    fetch('http://127.0.0.1:7357/ingest/4301e1ac-dbac-4b45-acb7-d5285c7d8052',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ebd4a'},body:JSON.stringify({sessionId:'4ebd4a',runId:'pre-fix',hypothesisId:'C',location:'app/(shop)/checkout/page.tsx:handlePaymentSuccess',message:'Redirecting after payment success',data:{paymentId,orderId,successPath},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     router.push(successPath);
   };
 
@@ -342,10 +360,10 @@ export default function CheckoutPage() {
                     />
                     <div className="flex-1">
                       <Label htmlFor="giftWrap" className="font-medium text-gray-900">
-                        Gift Wrapping (+${(GIFT_WRAP_COST / 100).toFixed(2)})
+                        Gift Wrapping (+Ksh {(GIFT_WRAP_COST / 100).toFixed(2)})
                       </Label>
                       <p className="text-sm text-gray-500 mt-1">
-                        Premium gift box with ribbon and tissue paper
+                        Premium gift box with ribbon 
                       </p>
                     </div>
                   </div>
@@ -412,17 +430,45 @@ export default function CheckoutPage() {
                 </div>
 
                 {orderError ? (
-                  <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-6">
-                    <p className="font-medium">Order Creation Failed</p>
-                    <p className="text-sm">{orderError}</p>
-                    <Button
-                      onClick={handleCreateOrder}
-                      variant="outline"
-                      size="sm"
-                      className="mt-2"
-                    >
-                      Try Again
-                    </Button>
+                  <div className={`p-4 rounded-md mb-6 ${priceChanged ? 'bg-amber-50 border border-amber-200 text-amber-900' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+                    <p className="font-semibold text-base mb-1">
+                      {priceChanged ? 'Price Update Required' : 'Order Creation Failed'}
+                    </p>
+                    <p className="text-sm mb-3">{orderError}</p>
+
+                    {priceChanged && priceChangesList.length > 0 && (
+                      <div className="bg-white/80 rounded border border-amber-200 p-3 mb-3 text-xs divide-y divide-amber-100">
+                        {priceChangesList.map((pc, idx) => (
+                          <div key={idx} className="py-1.5 flex justify-between items-center">
+                            <span className="font-medium text-gray-800">{pc.name}</span>
+                            <span className="space-x-2">
+                              <span className="line-through text-gray-400">KSh {(pc.oldPriceCents / 100).toLocaleString()}</span>
+                              <span className="font-bold text-amber-800">→ KSh {(pc.newPriceCents / 100).toLocaleString()}</span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      {priceChanged ? (
+                        <Button
+                          onClick={() => handleCreateOrder(true)}
+                          className="bg-[#B88E2F] hover:bg-[#9a7a29] text-white"
+                          size="sm"
+                        >
+                          Accept Updated Prices & Continue
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handleCreateOrder(false)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Try Again
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ) : orderLoading ? (
                   <div className="flex flex-col items-center justify-center py-12">
@@ -484,7 +530,7 @@ export default function CheckoutPage() {
                       <div className="flex items-center justify-between mt-1">
                         <p className="text-sm text-gray-500">Qty: {item.qty}</p>
                         <p className="font-medium text-gray-900">
-                          ${((item.priceAtAdd * item.qty) / 100).toFixed(2)}
+                          KSh {formatKsh(((item.priceAtAdd ?? (item as any).price) || 0) * item.qty)}
                         </p>
                       </div>
                     </div>
@@ -495,7 +541,7 @@ export default function CheckoutPage() {
               <div className="space-y-3 pt-4 border-t">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal ({totalItems} items)</span>
-                  <span className="font-medium">${(subtotal / 100).toFixed(2)}</span>
+                  <span className="font-medium">KSh {formatKsh(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Shipping</span>
@@ -504,16 +550,16 @@ export default function CheckoutPage() {
                 {giftOptions.isGiftWrap && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Gift Wrapping</span>
-                    <span className="font-medium">${(giftWrapCost / 100).toFixed(2)}</span>
+                    <span className="font-medium">KSh {formatKsh(giftWrapCost)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Tax (16%)</span>
-                  <span className="font-medium">${(tax / 100).toFixed(2)}</span>
+                  <span className="font-medium">KSh {formatKsh(tax)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold pt-3 border-t">
                   <span>Total</span>
-                  <span className="text-[#B88E2F]">${(total / 100).toFixed(2)}</span>
+                  <span className="text-[#B88E2F]">KSh {formatKsh(total)}</span>
                 </div>
               </div>
 

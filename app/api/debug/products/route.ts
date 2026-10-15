@@ -2,8 +2,15 @@ import { db } from "@/lib/db"
 import { products, productImages } from "@/drizzle/src/db/schema"
 import { sql, count, desc, eq } from "drizzle-orm"
 import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 export async function GET() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user || (session.user as any)?.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
+  }
+
   try {
     // Check for products with duplicate names
     const duplicateNames = await db

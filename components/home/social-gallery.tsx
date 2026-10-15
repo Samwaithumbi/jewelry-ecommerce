@@ -6,27 +6,27 @@ const galleryImages = [
   {
     id: "1",
     image: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=600&auto=format&fit=crop",
-    username: "@jewelrylover",
+    username: "@luminajewels",
   },
   {
     id: "2",
     image: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?q=80&w=600&auto=format&fit=crop",
-    username: "@stylequeen",
+    username: "@luminajewels",
   },
   {
     id: "3",
     image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=80&w=600&auto=format&fit=crop",
-    username: "@fashionista",
+    username: "@luminajewels",
   },
   {
     id: "4",
     image: "https://images.unsplash.com/photo-1611591437281-460bfbe1220a?q=80&w=600&auto=format&fit=crop",
-    username: "@luxlife",
+    username: "@luminajewels",
   },
   {
     id: "5",
     image: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=80&w=600&auto=format&fit=crop",
-    username: "@elegance",
+    username: "@luminajewels",
   },
 ]
 

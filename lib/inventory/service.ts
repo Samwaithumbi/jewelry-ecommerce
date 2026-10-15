@@ -120,8 +120,6 @@ export async function getInventoryLevel(
  * Note: Neon HTTP doesn't support transactions, so we use atomic SQL statements
  */
 export async function reserveInventory(input: ReserveInventoryInput): Promise<string> {
-  console.log(`[Inventory] Reserving inventory for order: ${input.orderId}`)
-  
   const reservationId = crypto.randomUUID();
   
   // Get default location (MAIN warehouse)
@@ -134,8 +132,6 @@ export async function reserveInventory(input: ReserveInventoryInput): Promise<st
     throw new Error("Main inventory location not found. Please seed inventory locations first.");
   }
 
-  console.log(`[Inventory] Main location found: ${mainLocation.id}`)
-
   // Create reservation record first
   await db.insert(inventoryReservations).values({
     id: reservationId,
@@ -145,11 +141,8 @@ export async function reserveInventory(input: ReserveInventoryInput): Promise<st
     expiresAt: input.expiresAt,
   });
 
-  console.log(`[Inventory] Reservation record created: ${reservationId}`)
-
   // Process each item
   for (const item of input.items) {
-    console.log(`[Inventory] Reserving item: variantId=${item.variantId}, quantity=${item.quantity}`)
     
     // Check if inventory level exists
     const existingLevel = await db.query.inventoryLevels.findFirst({
@@ -161,12 +154,28 @@ export async function reserveInventory(input: ReserveInventoryInput): Promise<st
 
     if (!existingLevel) {
       console.error(`[Inventory] No inventory level found for variant ${item.variantId} at location ${mainLocation.id}`)
-      // Rollback: delete the reservation we just created
+      // Rollback any items already reserved for this reservation
+      const reservedItems = await db.query.inventoryReservationItems.findMany({
+        where: eq(inventoryReservationItems.reservationId, reservationId),
+      });
+      for (const prev of reservedItems) {
+        await db
+          .update(inventoryLevels)
+          .set({
+            reserved: sql`${inventoryLevels.reserved} - ${prev.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(inventoryLevels.variantId, prev.variantId),
+              eq(inventoryLevels.locationId, prev.locationId)
+            )
+          );
+      }
+      await db.delete(inventoryReservationItems).where(eq(inventoryReservationItems.reservationId, reservationId));
       await db.delete(inventoryReservations).where(eq(inventoryReservations.id, reservationId));
       throw new Error(`No inventory level found for variant ${item.variantId}. Please set up inventory levels first.`);
     }
-
-    console.log(`[Inventory] Current stock for variant ${item.variantId}: onHand=${existingLevel.onHand}, reserved=${existingLevel.reserved}, available=${existingLevel.onHand - existingLevel.reserved}`)
 
     // Atomic check and reserve using a single UPDATE statement
     const result = await db
@@ -185,6 +194,27 @@ export async function reserveInventory(input: ReserveInventoryInput): Promise<st
       .returning();
 
     if (result.length === 0) {
+      // Rollback any items already reserved for this reservation
+      const reservedItems = await db.query.inventoryReservationItems.findMany({
+        where: eq(inventoryReservationItems.reservationId, reservationId),
+      });
+      for (const prev of reservedItems) {
+        await db
+          .update(inventoryLevels)
+          .set({
+            reserved: sql`${inventoryLevels.reserved} - ${prev.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(inventoryLevels.variantId, prev.variantId),
+              eq(inventoryLevels.locationId, prev.locationId)
+            )
+          );
+      }
+      await db.delete(inventoryReservationItems).where(eq(inventoryReservationItems.reservationId, reservationId));
+      await db.delete(inventoryReservations).where(eq(inventoryReservations.id, reservationId));
+
       // Get current stock for error message
       const current = await db.query.inventoryLevels.findFirst({
         where: and(
@@ -197,13 +227,8 @@ export async function reserveInventory(input: ReserveInventoryInput): Promise<st
       
       console.error(`[Inventory] Insufficient stock for variant ${item.variantId}: requested ${item.quantity}, available ${available}`)
       
-      // Rollback: delete the reservation we just created
-      await db.delete(inventoryReservations).where(eq(inventoryReservations.id, reservationId));
-      
       throw new InsufficientStockError(item.variantId, item.quantity, available);
     }
-
-    console.log(`[Inventory] Reserved ${item.quantity} units of variant ${item.variantId}`)
 
     // Create reservation item
     await db.insert(inventoryReservationItems).values({
@@ -215,7 +240,6 @@ export async function reserveInventory(input: ReserveInventoryInput): Promise<st
     });
   }
 
-  console.log(`[Inventory] Reservation ${reservationId} completed successfully`)
   return reservationId;
 }
 
@@ -276,8 +300,6 @@ export async function releaseReservation(reservationId: string): Promise<void> {
  * Decreases reserved, decreases onHand, creates sale movement
  */
 export async function confirmReservation(reservationId: string, performedBy?: string): Promise<void> {
-  console.log(`[Inventory] Confirming reservation: ${reservationId}`)
-  
   const reservation = await db.query.inventoryReservations.findFirst({
     where: eq(inventoryReservations.id, reservationId),
   });
@@ -286,8 +308,6 @@ export async function confirmReservation(reservationId: string, performedBy?: st
     console.error(`[Inventory] Reservation not found: ${reservationId}`)
     throw new ReservationNotFoundError(reservationId);
   }
-
-  console.log(`[Inventory] Reservation found with status: ${reservation.status}`)
 
   if (reservation.status !== "active") {
     console.warn(`[Inventory] Reservation status is ${reservation.status}, expected active`)
@@ -303,11 +323,8 @@ export async function confirmReservation(reservationId: string, performedBy?: st
     where: eq(inventoryReservationItems.reservationId, reservationId),
   });
 
-  console.log(`[Inventory] Found ${items.length} reservation items`)
-
   // Process each item
   for (const item of items) {
-    console.log(`[Inventory] Processing item: variantId=${item.variantId}, locationId=${item.locationId}, quantity=${item.quantity}`)
     
     // Decrease reserved and onHand
     await db
@@ -324,7 +341,7 @@ export async function confirmReservation(reservationId: string, performedBy?: st
         )
       );
 
-    console.log(`[Inventory] Updated inventory level for variant ${item.variantId}`)
+
 
     // Create sale movement
     await db.insert(inventoryMovements).values({
@@ -339,7 +356,6 @@ export async function confirmReservation(reservationId: string, performedBy?: st
       performedBy,
     });
 
-    console.log(`[Inventory] Created sale movement for variant ${item.variantId}`)
   }
 
   // Update reservation status
@@ -350,8 +366,6 @@ export async function confirmReservation(reservationId: string, performedBy?: st
       updatedAt: new Date(),
     })
     .where(eq(inventoryReservations.id, reservationId));
-
-  console.log(`[Inventory] Reservation ${reservationId} confirmed successfully`)
 }
 
 /**

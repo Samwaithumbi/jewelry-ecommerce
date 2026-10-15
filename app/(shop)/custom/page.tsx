@@ -185,7 +185,7 @@ export default function CustomOrderPage() {
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="budgetMin">Minimum Budget (USD)</Label>
+                  <Label htmlFor="budgetMin">Minimum Budget (KSh)</Label>
                   <Input
                     id="budgetMin"
                     type="number"
@@ -197,7 +197,7 @@ export default function CustomOrderPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="budgetMax">Maximum Budget (USD)</Label>
+                  <Label htmlFor="budgetMax">Maximum Budget (KSh)</Label>
                   <Input
                     id="budgetMax"
                     type="number"

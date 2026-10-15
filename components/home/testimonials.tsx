@@ -4,25 +4,25 @@ import { Star, CheckCircle } from "lucide-react"
 
 const testimonials = [
   {
-    name: "Sarah Mitchell",
+    name: "Sarah Wangui",
     product: "Eternal Rose Diamond Ring",
-    date: "March 2024",
+    date: "August 2026",
     rating: 5,
     text: "Absolutely stunning! The quality exceeded my expectations. My fiancée was speechless when she saw it. The craftsmanship is impeccable.",
     verified: true,
   },
   {
-    name: "James Anderson",
+    name: "Angela Wambui",
     product: "Sapphire Pendant Necklace",
-    date: "February 2024",
-    rating: 5,
+    date: "September 2026",
+    rating: 3,
     text: "Perfect anniversary gift. The sapphire has the most beautiful deep blue color. Customer service was exceptional throughout the process.",
     verified: true,
   },
   {
-    name: "Emily Chen",
+    name: "Emily Wangui",
     product: "Pearl Drop Earrings",
-    date: "March 2024",
+    date: "November 2026",
     rating: 5,
     text: "These earrings are elegant and versatile. I wear them to work and special occasions. The pearls are lustrous and the setting is secure.",
     verified: true,
@@ -45,7 +45,7 @@ export function Testimonials() {
             </div>
             <span className="text-lg font-medium text-gray-900">4.9/5</span>
           </div>
-          <p className="text-gray-600">from 2,400+ reviews</p>
+          <p className="text-gray-600">from 100+ reviews</p>
         </div>
         
         <div className="grid md:grid-cols-3 gap-8">

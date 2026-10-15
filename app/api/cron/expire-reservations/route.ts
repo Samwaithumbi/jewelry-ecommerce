@@ -1,30 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { expireReservations } from '@/lib/inventory/service';
 
+function isCronAuthorized(request: NextRequest): boolean {
+  const expectedSecret = process.env.CRON_SECRET;
+
+  // In development mode only, allow localhost testing without secret if not configured
+  if (process.env.NODE_ENV === 'development' && request.nextUrl.hostname === 'localhost') {
+    return true;
+  }
+
+  // In preview and production, a valid CRON_SECRET is strictly required
+  if (!expectedSecret) {
+    console.error('[Cron Error] CRON_SECRET is not configured on server.');
+    return false;
+  }
+
+  const authHeader = request.headers.get('authorization');
+  const cronSecretHeader = request.headers.get('x-cron-secret');
+
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const providedSecret = bearerToken || cronSecretHeader;
+
+  // A spoofed x-vercel-cron header alone MUST NOT authorize the cron request
+  return Boolean(providedSecret && providedSecret === expectedSecret);
+}
+
 /**
  * GET /api/cron/expire-reservations
  * 
- * Cron endpoint to clean up expired inventory reservations.
- * Called periodically by Vercel Cron Jobs.
- * 
- * For Vercel deployment, add to vercel.json schedule pattern:
- * Every 1 minute: * /1 * * * * (without space)
+ * Clean up expired inventory reservations.
+ * Called by Vercel Cron with Authorization: Bearer <CRON_SECRET>
  */
 export async function GET(request: NextRequest) {
   try {
-    const cronHeader = request.headers.get('x-vercel-cron');
-    const isVercelRequest = cronHeader === 'true';
-    const isLocalhost = request.nextUrl.hostname === 'localhost';
-    
-    if (!isVercelRequest && !isLocalhost) {
+    if (!isCronAuthorized(request)) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized: Invalid or missing cron credentials' },
         { status: 401 }
       );
     }
 
     const expiredCount = await expireReservations();
-    console.log(`Expired ${expiredCount} reservations at ${new Date().toISOString()}`);
 
     return NextResponse.json({
       success: true,
@@ -47,22 +63,18 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/cron/expire-reservations
  * 
- * Alternative endpoint with shared secret for manual triggering
+ * Alternative endpoint for manual or external triggering with shared secret
  */
 export async function POST(request: NextRequest) {
   try {
-    const secret = request.headers.get('x-cron-secret');
-    const expectedSecret = process.env.CRON_SECRET || 'dev-secret-change-in-production';
-    
-    if (secret !== expectedSecret) {
+    if (!isCronAuthorized(request)) {
       return NextResponse.json(
-        { error: 'Invalid cron secret' },
+        { error: 'Unauthorized: Invalid or missing cron credentials' },
         { status: 401 }
       );
     }
 
     const expiredCount = await expireReservations();
-    console.log(`Expired ${expiredCount} reservations (via POST) at ${new Date().toISOString()}`);
 
     return NextResponse.json({
       success: true,
@@ -70,7 +82,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Failed to expire reservations:', error);
+    console.error('Failed to expire reservations via POST:', error);
     return NextResponse.json(
       {
         success: false,

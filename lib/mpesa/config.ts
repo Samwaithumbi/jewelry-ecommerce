@@ -8,7 +8,7 @@
  * Never expose these values to the client side.
  */
 
-export type MpesaEnvironment = 'sandbox' | 'production' | 'mock';
+export type MpesaEnvironment = 'sandbox' | 'production';
 
 export interface MpesaConfig {
   consumerKey: string;
@@ -18,7 +18,6 @@ export interface MpesaConfig {
   callbackUrl: string;
   environment: MpesaEnvironment;
   apiUrl: string;
-  isMock: boolean;
 }
 
 /**
@@ -42,52 +41,41 @@ export function getMpesaConfig(): MpesaConfig {
   const callbackUrl = process.env.MPESA_CALLBACK_URL;
   const environment = (process.env.MPESA_ENV || 'sandbox') as MpesaEnvironment;
 
-  console.log('🔍 MPESA Environment:', environment);
-
-  // Check if mock mode is enabled
-  const isMock = environment === 'mock';
-
-  // Skip validation in mock mode
-  if (!isMock) {
-    // Validate required environment variables
-    if (!consumerKey) {
-      throw new Error('MPESA_CONSUMER_KEY environment variable is required');
-    }
-    if (!consumerSecret) {
-      throw new Error('MPESA_CONSUMER_SECRET environment variable is required');
-    }
-    if (!shortcode) {
-      throw new Error('MPESA_SHORTCODE environment variable is required');
-    }
-    if (!passkey) {
-      throw new Error('MPESA_PASSKEY environment variable is required');
-    }
-    if (!callbackUrl) {
-      throw new Error('MPESA_CALLBACK_URL environment variable is required');
-    }
+  // Validate required environment variables
+  if (!consumerKey) {
+    throw new Error('MPESA_CONSUMER_KEY environment variable is required');
+  }
+  if (!consumerSecret) {
+    throw new Error('MPESA_CONSUMER_SECRET environment variable is required');
+  }
+  if (!shortcode) {
+    throw new Error('MPESA_SHORTCODE environment variable is required');
+  }
+  if (!passkey) {
+    throw new Error('MPESA_PASSKEY environment variable is required');
+  }
+  if (!callbackUrl) {
+    throw new Error('MPESA_CALLBACK_URL environment variable is required');
   }
 
   // Validate environment
-  if (environment !== 'sandbox' && environment !== 'production' && environment !== 'mock') {
-    throw new Error(`MPESA_ENV must be 'sandbox', 'production', or 'mock', got: ${environment}`);
+  if (environment !== 'sandbox' && environment !== 'production') {
+    throw new Error(`MPESA_ENV must be 'sandbox' or 'production', got: ${environment}`);
   }
 
   // Set API URL based on environment
   const apiUrl = environment === 'sandbox'
     ? 'https://sandbox.safaricom.co.ke/mpesa/'
-    : environment === 'production'
-    ? 'https://api.safaricom.co.ke/mpesa/'
-    : 'https://mock.mpesa.api/';
+    : 'https://api.safaricom.co.ke/mpesa/';
 
   return {
-    consumerKey: consumerKey || 'mock-key',
-    consumerSecret: consumerSecret || 'mock-secret',
-    shortcode: shortcode || 'mock-shortcode',
-    passkey: passkey || 'mock-passkey',
-    callbackUrl: callbackUrl || 'mock-callback',
+    consumerKey,
+    consumerSecret,
+    shortcode,
+    passkey,
+    callbackUrl,
     environment,
     apiUrl,
-    isMock,
   };
 }
 
@@ -99,13 +87,6 @@ export function isSandbox(): boolean {
 }
 
 /**
- * Check if running in mock mode
- */
-export function isMock(): boolean {
-  return getMpesaConfig().isMock;
-}
-
-/**
  * Get OAuth base URL for authentication
  */
 export function getOAuthUrl(): string {
@@ -113,9 +94,7 @@ export function getOAuthUrl(): string {
   // OAuth uses a different base URL than STK Push
   const oauthBaseUrl = config.environment === 'sandbox'
     ? 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
-    : config.environment === 'production'
-    ? 'https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
-    : 'https://mock.mpesa.api/oauth/v1/generate?grant_type=client_credentials';
+    : 'https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials';
   return oauthBaseUrl;
 }
 

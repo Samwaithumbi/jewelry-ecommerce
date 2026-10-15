@@ -1,11 +1,5 @@
 'use client';
 
-/**
- * Checkout Success Page
- * 
- * This page displays after a successful payment.
- * It shows order confirmation and next steps.
- */
 
 import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
@@ -13,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Package, Home, MapPin, CreditCard } from 'lucide-react';
 import Link from 'next/link';
+import { clearCart } from '@/app/actions/cart/clear-cart';
 
 interface OrderItem {
   id: string;
@@ -50,6 +45,15 @@ function CheckoutSuccessContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Ensure cart is cleared on the server and immediately notify all cart UI listeners
+    clearCart()
+      .catch((err) => console.warn('Failed to clear cart on success page:', err))
+      .finally(() => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('cart-update'));
+        }
+      });
+
     if (orderId) {
       fetchOrderDetails(orderId);
     }
@@ -60,9 +64,9 @@ function CheckoutSuccessContent() {
       const response = await fetch(`/api/orders/${id}`);
       const data = await response.json();
       
-      if (data.success) {
+      if (data.success && data.order) {
         setOrder(data.order);
-        setItems(data.items);
+        setItems(data.items || data.order.items || []);
       }
     } catch (error) {
       console.error('Failed to fetch order details:', error);
@@ -115,7 +119,7 @@ function CheckoutSuccessContent() {
               <div>
                 <h3 className="font-semibold text-gray-900 mb-4">Order Items</h3>
                 <div className="space-y-3">
-                  {items.map((item) => (
+                  {(items || []).map((item) => (
                     <div key={item.id} className="flex justify-between items-center py-3 border-b">
                       <div>
                         <p className="font-medium text-gray-900">{item.productName}</p>
@@ -126,6 +130,9 @@ function CheckoutSuccessContent() {
                       </p>
                     </div>
                   ))}
+                  {(!items || items.length === 0) && (
+                    <p className="text-sm text-gray-500 italic">No items found for this order.</p>
+                  )}
                 </div>
               </div>
 
@@ -159,14 +166,16 @@ function CheckoutSuccessContent() {
                   Shipping Address
                 </h3>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="font-medium text-gray-900">{order.shippingAddress.name}</p>
-                  <p className="text-sm text-gray-600">{order.shippingAddress.phone}</p>
-                  <p className="text-sm text-gray-600">{order.shippingAddress.email}</p>
-                  <p className="text-sm text-gray-600 mt-2">{order.shippingAddress.address}</p>
-                  <p className="text-sm text-gray-600">
-                    {order.shippingAddress.city}, {order.shippingAddress.postalCode}
-                  </p>
-                  <p className="text-sm text-gray-600">{order.shippingAddress.country}</p>
+                  <p className="font-medium text-gray-900">{order.shippingAddress?.name || 'Customer'}</p>
+                  {order.shippingAddress?.phone && <p className="text-sm text-gray-600">{order.shippingAddress.phone}</p>}
+                  {order.shippingAddress?.email && <p className="text-sm text-gray-600">{order.shippingAddress.email}</p>}
+                  {order.shippingAddress?.address && <p className="text-sm text-gray-600 mt-2">{order.shippingAddress.address}</p>}
+                  {(order.shippingAddress?.city || order.shippingAddress?.postalCode) && (
+                    <p className="text-sm text-gray-600">
+                      {[order.shippingAddress?.city, order.shippingAddress?.postalCode].filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                  {order.shippingAddress?.country && <p className="text-sm text-gray-600">{order.shippingAddress.country}</p>}
                 </div>
               </div>
             </div>

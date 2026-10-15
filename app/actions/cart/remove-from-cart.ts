@@ -10,8 +10,11 @@ export async function removeFromCart(productId: string, variantId?: string) {
     const sessionId = await getCartSessionId();
     const cart = await getCart(sessionId);
 
+    const norm = (val?: string | null) => (val ? val.trim() : "");
+    const targetVariantId = norm(variantId);
+
     cart.items = cart.items.filter(
-        (i) => !(i.productId === productId && i.variantId === variantId)
+        (i) => !(i.productId === productId && norm(i.variantId) === targetVariantId)
     );
 
     cart.updatedAt = new Date().toISOString();

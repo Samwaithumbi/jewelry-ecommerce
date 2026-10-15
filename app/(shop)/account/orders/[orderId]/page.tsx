@@ -71,7 +71,7 @@ export default function CustomerOrderDetailPage() {
 
       if (data.success) {
         setOrder(data.order);
-        setItems(data.items);
+        setItems(data.items || data.order?.items || []);
       }
     } catch (error) {
       console.error('Failed to fetch order:', error);
@@ -87,7 +87,7 @@ export default function CustomerOrderDetailPage() {
   }, [orderId]);
 
   const formatCurrency = (cents: number) => {
-    return (cents / 100).toFixed(2);
+    return `KSh ${(cents / 100).toLocaleString()}`;
   };
 
   const formatDate = (dateString: string | null) => {
@@ -231,51 +231,71 @@ export default function CustomerOrderDetailPage() {
                 Order Items
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="font-medium">{item.productName}</div>
-                      </TableCell>
-                      <TableCell className="text-right">{item.qty}</TableCell>
-                      <TableCell className="text-right">
-                        ${formatCurrency(item.priceCents)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        ${formatCurrency(item.priceCents * item.qty)}
-                      </TableCell>
+            <CardContent className="p-4 sm:p-6">
+              {/* Mobile Items View */}
+              <div className="block md:hidden space-y-3">
+                {items.map((item) => (
+                  <div key={item.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between gap-3 text-xs">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{item.productName}</p>
+                      <p className="text-muted-foreground mt-0.5">
+                        Qty: {item.qty} × {formatCurrency(item.priceCents)}
+                      </p>
+                    </div>
+                    <div className="text-right font-bold text-[#B88E2F] shrink-0">
+                      {formatCurrency(item.priceCents * item.qty)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Items Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead className="text-right">Quantity</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="font-medium">{item.productName}</div>
+                        </TableCell>
+                        <TableCell className="text-right">{item.qty}</TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(item.priceCents)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium text-[#B88E2F]">
+                          {formatCurrency(item.priceCents * item.qty)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
               {/* Order Summary */}
               <div className="mt-6 space-y-2 pt-4 border-t">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium">${formatCurrency(order.subtotalCents)}</span>
+                  <span className="font-medium">{formatCurrency(order.subtotalCents)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span className="font-medium">${formatCurrency(order.shippingCents)}</span>
+                  <span className="font-medium">{formatCurrency(order.shippingCents)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Tax</span>
-                  <span className="font-medium">${formatCurrency(order.taxCents)}</span>
+                  <span className="font-medium">{formatCurrency(order.taxCents)}</span>
                 </div>
-                <div className="flex justify-between text-xl font-bold pt-2 border-t mt-2">
+                <div className="flex justify-between text-lg sm:text-xl font-bold pt-2 border-t mt-2">
                   <span>Total</span>
-                  <span>${formatCurrency(order.totalCents)}</span>
+                  <span className="text-[#B88E2F]">{formatCurrency(order.totalCents)}</span>
                 </div>
               </div>
             </CardContent>

@@ -2,32 +2,91 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { XCircle, RefreshCw, Home, ArrowLeft, AlertCircle } from 'lucide-react';
+import { XCircle, RefreshCw, Home, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { updatePaymentStatus } from '@/app/actions/checkout/order-error';
 
 function CheckoutFailureContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const errorParam = searchParams.get('error') || 'Payment failed or expired. Please try again.';
   const orderId = searchParams.get('orderId');
   const [failureReason, setFailureReason] = useState<string>(errorParam);
+  const [checkingRecovery, setCheckingRecovery] = useState(!!orderId);
   const hasNotifiedRef = useRef(false);
+  const pollCountRef = useRef(0);
+  const MAX_POLLS = 10; // 30 seconds total
 
+  // Poll payment status briefly — Daraja sometimes retries callbacks seconds after
+  // the frontend detects a failure, and the order may resolve to SUCCESS.
   useEffect(() => {
-    if (orderId && !hasNotifiedRef.current) {
-      hasNotifiedRef.current = true;
-      updatePaymentStatus(orderId, 'cancelled', errorParam)
-        .then((res) => {
-          if (res?.reason) {
-            setFailureReason(res.reason);
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to sync order failure status:', err);
-        });
+    if (!orderId) {
+      setCheckingRecovery(false);
+      return;
     }
-  }, [orderId, errorParam]);
+
+    // Fetch latest payment for this order from the payments API
+    const poll = async () => {
+      try {
+        // Check the latest payment status via the order's payment records
+        const res = await fetch(`/api/payments/by-order/${orderId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.status === 'success') {
+            // Payment actually succeeded — redirect to success page
+            router.replace(`/checkout/success?orderId=${orderId}`);
+            return true;
+          }
+        }
+      } catch {
+        // Ignore polling errors
+      }
+      return false;
+    };
+
+    let interval: NodeJS.Timeout;
+    const startPolling = () => {
+      interval = setInterval(async () => {
+        pollCountRef.current += 1;
+        const resolved = await poll();
+        if (resolved || pollCountRef.current >= MAX_POLLS) {
+          clearInterval(interval);
+          setCheckingRecovery(false);
+          // Only then call updatePaymentStatus to cancel pending payments
+          if (!resolved && orderId && !hasNotifiedRef.current) {
+            hasNotifiedRef.current = true;
+            updatePaymentStatus(orderId, 'cancelled', errorParam)
+              .then((res) => {
+                if (res?.reason) setFailureReason(res.reason);
+              })
+              .catch((err) => console.error('Failed to sync order failure status:', err));
+          }
+        }
+      }, 3000);
+    };
+
+    // Brief initial check then start polling
+    poll().then((resolved) => {
+      if (resolved) return;
+      setCheckingRecovery(true);
+      startPolling();
+    });
+
+    return () => clearInterval(interval);
+  }, [orderId, errorParam, router]);
+
+  if (checkingRecovery) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-lg p-8 text-center max-w-md w-full">
+          <Loader2 className="h-12 w-12 animate-spin text-amber-500 mx-auto mb-4" />
+          <p className="text-gray-700 font-medium">Verifying payment status...</p>
+          <p className="text-sm text-gray-500 mt-2">Please wait a moment</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -68,12 +127,6 @@ function CheckoutFailureContent() {
                 </Button>
               </Link>
             )}
-            <Link href="/shop/cart" className="block">
-              <Button variant="outline" className="w-full" size="lg">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Return to Cart
-              </Button>
-            </Link>
             <Link href="/" className="block">
               <Button variant="ghost" className="w-full" size="lg">
                 <Home className="mr-2 h-4 w-4" />

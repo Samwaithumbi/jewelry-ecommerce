@@ -27,9 +27,7 @@ const navMain = [
   { title: "Products", url: "/admin-dashboard/products", icon: Package },
   { title: "Customers", url: "/admin-dashboard/customers", icon: Users },
   { title: "Inventory", url: "/admin-dashboard/inventory", icon: Package },
-  { title: "AI Stylist", url: "/admin-dashboard/ai-stylist", icon: Package },
-  { title: "Analytics", url: "/admin-dashboard/analytics", icon: BarChart3 },
-  { title: "Settings", url: "/admin-dashboard/settings", icon: Settings },
+  
 ]
 
 
@@ -38,9 +36,9 @@ export default function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-3">
-          <span className="text-lg font-semibold "><Gem className="h-6 w-6 text-gold-300" /> Lumina</span>
-          <span className="border ">Admin</span>
+        <div className="flex items-center justify-between gap-2 px-2 py-3">
+          <span className="text-lg font-semibold flex items-center gap-2 "> <span className="rounded-full text-black bg-orange-400 p-2">L</span>Lumina</span>
+          <span className="text-xs font-medium ">Admin</span>
         </div>
       </SidebarHeader>
 
@@ -53,7 +51,7 @@ export default function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton render={<Link href={item.url} />}>
                     <item.icon />
-                    <span>{item.title}</span>
+                    <span className="font-medium">{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -66,7 +64,7 @@ export default function AppSidebar() {
 
       <SidebarFooter>
         <div className="px-3 py-2 text-xs text-muted-foreground">
-          © {new Date().getFullYear()} Jewelry Store
+          © {new Date().getFullYear()} Lumina Jewelry Store
         </div>
       </SidebarFooter>
     </Sidebar>

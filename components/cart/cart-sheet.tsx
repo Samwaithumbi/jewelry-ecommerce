@@ -51,34 +51,42 @@ export function CartSheet() {
     const [isOpen, setIsOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
 
-    const fetchCart = async () => {
+    const fetchCart = async (dispatchUpdate = false) => {
         const fetchedCart = await getCart();
         setCart(fetchedCart);
-        // Dispatch event to notify other components of cart changes
-        window.dispatchEvent(new Event('cart-update'));
+        if (dispatchUpdate) {
+            window.dispatchEvent(new Event('cart-update'));
+        }
     };
 
     useEffect(() => {
-        fetchCart();
+        fetchCart(false);
+
+        const handleCartUpdate = () => {
+            fetchCart(false);
+        };
+
+        window.addEventListener('cart-update', handleCartUpdate);
+        return () => window.removeEventListener('cart-update', handleCartUpdate);
     }, []);
 
     useEffect(() => {
         if (isOpen) {
-            fetchCart();
+            fetchCart(false);
         }
     }, [isOpen]);
 
     const handleUpdateQty = (productId: string, variantId: string | undefined, qty: number) => {
         startTransition(async () => {
             await updateQty(productId, variantId, qty);
-            await fetchCart();
+            await fetchCart(true);
         });
     };
 
     const handleRemove = (productId: string, variantId: string | undefined) => {
         startTransition(async () => {
             await removeFromCart(productId, variantId);
-            await fetchCart();
+            await fetchCart(true);
         });
     };
 
@@ -154,7 +162,7 @@ export function CartSheet() {
                                         </div>
                                     </div>
                                     <div className="text-right font-medium self-start">
-                                        ${(item.priceAtAdd / 100).toFixed(2)}
+                                        Ksh {(item.priceAtAdd / 100).toFixed(2)}
                                     </div>
                                 </div>
                             ))}
@@ -165,7 +173,7 @@ export function CartSheet() {
                     <div className="border-t pt-4 mt-auto">
                         <div className="mb-4 flex items-center justify-between font-medium text-lg">
                             <span>Subtotal</span>
-                            <span>${(subtotal / 100).toFixed(2)}</span>
+                            <span>Ksh {(subtotal / 100).toFixed(2)}</span>
                         </div>
                         <Button 
                             className="w-full" 

@@ -13,13 +13,11 @@ export async function POST() {
     });
 
     if (error) {
-      console.log(error);
       return Response.json({ error }, { status: 500 });
     }
 
     return Response.json(data);
   } catch (error) {
-    console.log(error);
     return Response.json({ error }, { status: 500 });
   }
 }

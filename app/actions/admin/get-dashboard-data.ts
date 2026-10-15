@@ -5,6 +5,7 @@ import { orders, orderItems, products, productVariants } from "@/drizzle/src/db/
 import { inventoryLevels, inventoryLocations } from "@/drizzle/src/db/inventory-schema"
 import { eq, and, gte, inArray, sql, desc, asc } from "drizzle-orm"
 import { formatMonth, mapCategoryToDisplay, getCategoryColor } from "@/lib/dashboard-utils"
+import { requireAdminSession } from "@/lib/auth-guard"
 
 // ── TypeScript Types ──────────────────────────────────────────────────────────
 
@@ -45,13 +46,12 @@ const VALID_ORDER_STATUSES = ['confirmed', 'processing', 'shipped', 'delivered']
  * Excludes pending, cancelled, and refunded orders
  */
 export async function getRevenueData(): Promise<RevenueDataPoint[]> {
+  await requireAdminSession()
   try {
     // Calculate date 12 months ago
     const twelveMonthsAgo = new Date()
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
     twelveMonthsAgo.setDate(1) // Start from first of month
-
-    console.log('Fetching revenue data from:', twelveMonthsAgo)
 
     // Query orders from last 12 months with valid statuses
     const orderData = await db
@@ -68,15 +68,14 @@ export async function getRevenueData(): Promise<RevenueDataPoint[]> {
       )
       .orderBy(orders.createdAt)
 
-    console.log(`Found ${orderData.length} orders for revenue calculation`)
-
-    // Group by month and sum revenue
+    // Group by month and sum revenue (convert from cents to KSh)
     const monthlyRevenue = new Map<string, number>()
     
     orderData.forEach((order) => {
       const monthKey = formatMonth(new Date(order.createdAt))
       const currentRevenue = monthlyRevenue.get(monthKey) || 0
-      monthlyRevenue.set(monthKey, currentRevenue + order.totalCents)
+      // Convert cents to KSh (divide by 100)
+      monthlyRevenue.set(monthKey, currentRevenue + (order.totalCents / 100))
     })
 
     // Create array for last 12 months (ensure all months present)
@@ -94,7 +93,6 @@ export async function getRevenueData(): Promise<RevenueDataPoint[]> {
       })
     }
 
-    console.log('Revenue data prepared:', result)
     return result
 
   } catch (error) {
@@ -110,9 +108,8 @@ export async function getRevenueData(): Promise<RevenueDataPoint[]> {
  * Returns percentages of total revenue
  */
 export async function getCategoryData(): Promise<CategoryDataPoint[]> {
+  await requireAdminSession()
   try {
-    console.log('Fetching category revenue data...')
-
     // Get all order items with valid order statuses
     const categoryRevenue = await db
       .select({
@@ -125,23 +122,21 @@ export async function getCategoryData(): Promise<CategoryDataPoint[]> {
       .where(inArray(orders.status, VALID_ORDER_STATUSES))
       .groupBy(products.category)
 
-    console.log('Category revenue raw data:', categoryRevenue)
 
-    // Calculate total revenue across all categories
+    // Calculate total revenue across all categories (convert from cents to KSh)
     const totalRevenue = categoryRevenue.reduce(
-      (sum, cat) => sum + Number(cat.totalRevenue || 0),
+      (sum, cat) => sum + (Number(cat.totalRevenue || 0) / 100),
       0
     )
 
     if (totalRevenue === 0) {
-      console.log('No revenue data available for categories')
       return []
     }
 
     // Convert to percentages and format
     const result = categoryRevenue
       .map((cat, index) => {
-        const revenue = Number(cat.totalRevenue || 0)
+        const revenue = Number(cat.totalRevenue || 0) / 100 // Convert cents to KSh
         const percentage = Math.round((revenue / totalRevenue) * 100)
         
         return {
@@ -153,7 +148,6 @@ export async function getCategoryData(): Promise<CategoryDataPoint[]> {
       .filter((cat) => cat.value > 0) // Remove 0% categories
       .sort((a, b) => b.value - a.value) // Sort by percentage descending
 
-    console.log('Category data prepared:', result)
     return result
 
   } catch (error) {
@@ -171,6 +165,7 @@ export async function getCategoryData(): Promise<CategoryDataPoint[]> {
  * - Revenue metrics
  */
 export async function getAIInsights(): Promise<InsightData[]> {
+  await requireAdminSession()
   const insights: InsightData[] = []
 
   try {
@@ -342,7 +337,6 @@ export async function getAIInsights(): Promise<InsightData[]> {
       })
     }
 
-    console.log(`Generated ${insights.length} insights`)
     return insights
 
   } catch (error) {
@@ -365,8 +359,8 @@ export async function getAIInsights(): Promise<InsightData[]> {
  * Gets top 4 products with lowest available stock
  */
 export async function getInventoryHealth(): Promise<InventoryItemDisplay[]> {
+  await requireAdminSession()
   try {
-    console.log('Fetching inventory health data...')
 
     // Get main inventory location
     const mainLocation = await db.query.inventoryLocations.findFirst({
@@ -392,7 +386,6 @@ export async function getInventoryHealth(): Promise<InventoryItemDisplay[]> {
       .limit(4)
 
     if (inventoryData.length === 0) {
-      console.log('No inventory data found')
       return []
     }
 
@@ -426,7 +419,6 @@ export async function getInventoryHealth(): Promise<InventoryItemDisplay[]> {
       })
       .filter((item) => item.sku !== 'N/A') // Remove items without variant info
 
-    console.log('Inventory health data prepared:', result)
     return result
 
   } catch (error) {

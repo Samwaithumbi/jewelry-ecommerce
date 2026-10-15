@@ -3,13 +3,16 @@
  * 
  * GET /api/orders/[orderId]
  * 
- * This endpoint returns the details of a specific order including items.
+ * Security: Enforces customer order isolation.
+ * Customers can only view their own orders; admins can view any order.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { orders, orderItems, products } from '@/drizzle/src/db/schema';
 import { eq } from 'drizzle-orm';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET(
   request: NextRequest,
@@ -19,9 +22,10 @@ export async function GET(
     const { orderId } = await params;
 
     // Get order details
-    const order = await db
+    const orderResults = await db
       .select({
         id: orders.id,
+        userId: orders.userId,
         orderNumber: orders.orderNumber,
         status: orders.status,
         subtotalCents: orders.subtotalCents,
@@ -35,7 +39,22 @@ export async function GET(
       .where(eq(orders.id, orderId))
       .limit(1);
 
-    if (!order || order.length === 0) {
+    if (!orderResults || orderResults.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Order not found' },
+        { status: 404 }
+      );
+    }
+
+    const order = orderResults[0];
+
+    // Authorization check: customer isolation
+    const session = await getServerSession(authOptions);
+    const sessionUserId = session?.user?.id;
+    const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'admin';
+
+    // If order belongs to a registered customer, caller must be owner or admin
+    if (order.userId && order.userId !== sessionUserId && !isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Order not found' },
         { status: 404 }
@@ -56,9 +75,29 @@ export async function GET(
       .leftJoin(products, eq(orderItems.productId, products.id))
       .where(eq(orderItems.orderId, orderId));
 
+    let parsedAddress = order.shippingAddress;
+    if (typeof parsedAddress === 'string') {
+      try {
+        parsedAddress = JSON.parse(parsedAddress);
+      } catch {
+        // ignore parse error
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      order: order[0],
+      order: {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        subtotalCents: order.subtotalCents,
+        shippingCents: order.shippingCents,
+        taxCents: order.taxCents,
+        totalCents: order.totalCents,
+        shippingAddress: parsedAddress,
+        createdAt: order.createdAt,
+        items,
+      },
       items,
     });
   } catch (error) {

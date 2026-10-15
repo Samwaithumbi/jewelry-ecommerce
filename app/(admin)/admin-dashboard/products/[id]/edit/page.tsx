@@ -1,4 +1,4 @@
-import { ProductForm } from "@/components/product-form";
+import { ProductForm } from "@/components/products/product-form";
 import { db } from "@/lib/db";
 import { products, productImages } from "@/drizzle/src/db/schema";
 import { eq } from "drizzle-orm";
@@ -30,7 +30,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     description: product.description || "",
     metalType: product.metalType,
     metalPurity: product.metalPurity,
-    basePriceCents: product.basePriceCents,
+    basePriceCents: Math.round(product.basePriceCents / 100),
     weightGrams: parseFloat(product.weightGrams as string),
     category: product.category,
     imageUrl: imageUrl || "",
