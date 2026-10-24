@@ -1,15 +1,4 @@
-/**
- * M-PESA STK Push Implementation
- * 
- * This module handles STK Push requests to Safaricom Daraja API.
- * STK Push sends a payment prompt directly to the customer's phone.
- * 
- * SECURITY:
- * - Password is generated dynamically using shortcode + passkey + timestamp
- * - Amount is always retrieved from database, never from client
- * - Phone numbers are normalized before sending
- * - All sensitive operations happen server-side
- */
+
 
 import { getMpesaConfig, getStkPushUrl } from './config';
 import { getAccessToken } from './auth';
@@ -81,6 +70,11 @@ export async function initiateStkPush(
 ): Promise<StkPushResponse> {
   try {
     const config = getMpesaConfig();
+    console.log('[M-Pesa] STK Push configuration', {
+        callbackUrl: config.callbackUrl,
+        environment: config.environment,
+        endpoint: getStkPushUrl(),
+    });
     
     // Normalize phone number
     const normalizedPhone = normalizePhoneNumber(phoneNumber);
@@ -114,6 +108,10 @@ export async function initiateStkPush(
       AccountReference: accountReference,
       TransactionDesc: transactionDesc,
     };
+    console.log('[M-Pesa] Sending STK Push', {
+    callbackUrl: stkPushRequest.CallBackURL,
+    endpoint: getStkPushUrl(),
+    });
 
     // Send STK Push request
     const response = await fetch(getStkPushUrl(), {

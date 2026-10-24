@@ -8,9 +8,11 @@ import { useState, useEffect } from "react"
 import { getWishlistCount } from "@/app/actions/wishlist/get-wishlist-count"
 
 
+
 export function  Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
+
 
   useEffect(() => {
     const updateCount = () => {
