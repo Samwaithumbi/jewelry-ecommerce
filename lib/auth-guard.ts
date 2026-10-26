@@ -31,15 +31,21 @@ export async function requireSession() {
 export async function requireAdminSession() {
   const session = await requireSession()
   const userId = session.user?.id
-  if (!userId) {
+  const userEmail = session.user?.email
+  if (!userId && !userEmail) {
     throw new Error("FORBIDDEN: Admin access required")
   }
 
-  // Authoritative database check
-  const dbUser = await db.query.users.findFirst({
-    where: eq(users.id, userId),
-    columns: { role: true },
-  });
+  // Authoritative database check by email (or uuid fallback)
+  const dbUser = userEmail
+    ? await db.query.users.findFirst({
+        where: eq(users.email, userEmail.toLowerCase()),
+        columns: { role: true },
+      })
+    : await db.query.users.findFirst({
+        where: eq(users.id, userId!),
+        columns: { role: true },
+      });
 
   if (!dbUser || dbUser.role !== "admin") {
     throw new Error("FORBIDDEN: Admin access required")

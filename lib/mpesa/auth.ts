@@ -14,10 +14,12 @@
 import { getOAuthUrl, getMpesaConfig } from './config';
 import { DarajaAuthError, MpesaNetworkError } from './errors';
 import { DarajaOAuthResponse } from './types';
+import { redis } from '@/lib/redis';
+
+const REDIS_TOKEN_KEY = 'mpesa:access_token';
 
 /**
- * In-memory cache for access token
- * In production, consider using Redis for distributed caching
+ * In-memory cache for access token (fallback / process-local)
  */
 let tokenCache: {
   token: string;
@@ -41,21 +43,34 @@ function generateBase64Credentials(): string {
  * Get access token from Daraja OAuth endpoint
  * 
  * This function:
- * 1. Checks if a valid cached token exists
- * 2. If not, requests a new token from Daraja
- * 3. Caches the token with expiration time
+ * 1. Checks process-local cache
+ * 2. Checks distributed Upstash Redis cache (F-16)
+ * 3. If cache miss, requests a new token from Daraja
+ * 4. Caches the token with TTL
  * 
  * @returns Access token string
  * @throws DarajaAuthError if authentication fails
  * @throws MpesaNetworkError if network request fails
  */
 export async function getAccessToken(): Promise<string> {
-  const config = getMpesaConfig();
-
-  // Check if we have a valid cached token
+  // 1. Check local memory cache
   if (tokenCache && tokenCache.expiresAt > Date.now()) {
-    // Token is still valid, return cached token
     return tokenCache.token;
+  }
+
+  // 2. Check distributed Redis cache (F-16)
+  try {
+    const cachedToken = await redis.get<string>(REDIS_TOKEN_KEY);
+    if (cachedToken) {
+      // Sync to process-local cache for 5 minutes
+      tokenCache = {
+        token: cachedToken,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      };
+      return cachedToken;
+    }
+  } catch (redisErr) {
+    console.warn('[Daraja Auth] Redis token cache check failed, proceeding to fetch:', redisErr);
   }
 
   try {
@@ -87,12 +102,20 @@ export async function getAccessToken(): Promise<string> {
     // Daraja tokens expire after 1 hour (3600 seconds)
     // We set expiration 5 minutes early to be safe
     const expiresIn = parseInt(data.expires_in, 10) || 3600;
-    const expiresAt = Date.now() + (expiresIn - 300) * 1000; // 5 minutes buffer
+    const ttlSeconds = Math.max(60, expiresIn - 300); // 5 minutes buffer
+    const expiresAt = Date.now() + ttlSeconds * 1000;
 
     tokenCache = {
       token: data.access_token,
       expiresAt,
     };
+
+    // Store in distributed Redis cache (F-16)
+    try {
+      await redis.set(REDIS_TOKEN_KEY, data.access_token, { ex: ttlSeconds });
+    } catch (redisSaveErr) {
+      console.warn('[Daraja Auth] Failed to save token to Redis:', redisSaveErr);
+    }
 
     return data.access_token;
   } catch (error) {
@@ -118,6 +141,9 @@ export async function getAccessToken(): Promise<string> {
  */
 export function clearTokenCache(): void {
   tokenCache = null;
+  redis.del(REDIS_TOKEN_KEY).catch(err => {
+    console.warn('Failed to delete token from Redis:', err);
+  });
 }
 
 /**

@@ -7,12 +7,18 @@ import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 import { getWishlistCount } from "@/app/actions/wishlist/get-wishlist-count"
 
+interface NavbarProps {
+  user?:{
+    name?:string | null
+    email?:string | null
+    image?:string | null
+  } | null
+}
 
 
-export function  Navbar() {
+export function  Navbar({user}:NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
-
 
   useEffect(() => {
     const updateCount = () => {
@@ -31,14 +37,14 @@ export function  Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
         {/* Logo and Brand Name */}
         <div className="flex items-center">
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="relative size-7 rounded-full bg-[#B88E2F] flex items-center justify-center text-white font-bold text-lg ">
+          <Link href="/" className="flex items-center space-x-2.5 sm:space-x-3">
+            <div className="relative size-7 rounded-full bg-[#B88E2F] flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-xs">
               L
             </div>
-            <span className="font-serif text-lg  font-medium-bold tracking-wider text-[#111827] md:text-2xl ">
+            <span className="font-serif text-base sm:text-lg md:text-2xl font-bold tracking-wider text-[#111827] truncate">
               LUMINA JEWELS
             </span>
           </Link>
@@ -124,12 +130,22 @@ export function  Navbar() {
               )}
             </Link>
           </Button>
+           
 
-          <Button variant="ghost" size="icon" className="text-[#111827] hover:text-[#B88E2F]">
+           {user?.image? (
+            <Button variant="ghost" size="icon" className="text-[#111827] hover:text-[#B88E2F]">
+            <Link href="/account">
+              <img src={user.image} alt="" className="rounded-full object-cover w-8 h-8"/>
+            </Link>
+          </Button>
+           ):(
+            <Button variant="ghost" size="icon" className="text-[#111827] hover:text-[#B88E2F]">
             <Link href="/account">
               <User className="h-5 w-5" />
             </Link>
           </Button>
+           
+          )}
 
           <CartSheet />
 
@@ -159,20 +175,50 @@ export function  Navbar() {
         />
 
         {/* Menu panel */}
-        <div className="absolute left-0 right-0 top-full z-50 border-t bg-white py-4 shadow-lg lg:hidden">
-          <nav className="container ml-2 flex flex-col gap-4">
+        <div className="absolute left-0 right-0 top-full z-50 border-t bg-white py-5 shadow-xl lg:hidden max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <nav className="container mx-auto px-6 flex flex-col gap-3">
             <Link
               href="/products"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-lg font-medium text-[#111827] hover:text-[#B88E2F]"
+              className="text-base font-semibold text-[#111827] hover:text-[#B88E2F] py-2 border-b border-gray-100"
             >
-              Shop
+              Shop All Jewelry
             </Link>
+            <div className="grid grid-cols-2 gap-2 pl-2 pb-2 border-b border-gray-100">
+              <Link
+                href="/products?category=ring"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm text-gray-600 hover:text-[#B88E2F] py-1"
+              >
+                Rings
+              </Link>
+              <Link
+                href="/products?category=necklace"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm text-gray-600 hover:text-[#B88E2F] py-1"
+              >
+                Necklaces
+              </Link>
+              <Link
+                href="/products?category=earring"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm text-gray-600 hover:text-[#B88E2F] py-1"
+              >
+                Earrings
+              </Link>
+              <Link
+                href="/products?category=bracelet"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm text-gray-600 hover:text-[#B88E2F] py-1"
+              >
+                Bracelets
+              </Link>
+            </div>
 
             <Link
-              href="/collections"
+              href="/collections/best-sellers"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-lg font-medium text-[#111827] hover:text-[#B88E2F]"
+              className="text-base font-semibold text-[#111827] hover:text-[#B88E2F] py-2 border-b border-gray-100"
             >
               Collections
             </Link>
@@ -180,7 +226,7 @@ export function  Navbar() {
             <Link
               href="/custom-jewelry"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-lg font-medium text-[#111827] hover:text-[#B88E2F]"
+              className="text-base font-semibold text-[#111827] hover:text-[#B88E2F] py-2 border-b border-gray-100"
             >
               Custom Jewelry
             </Link>
@@ -188,10 +234,10 @@ export function  Navbar() {
             <Link
               href="/ai-stylist"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center text-lg font-medium text-[#111827] hover:text-[#B88E2F]"
+              className="flex items-center text-base font-semibold text-[#111827] hover:text-[#B88E2F] py-2"
             >
               AI Stylist
-              <Sparkle className="ml-1 h-4 w-4 text-[#B88E2F]" />
+              <Sparkle className="ml-1.5 h-4 w-4 text-[#B88E2F]" />
             </Link>
           </nav>
         </div>

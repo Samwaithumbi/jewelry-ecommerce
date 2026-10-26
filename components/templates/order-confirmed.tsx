@@ -77,10 +77,10 @@ export function OrderConfirmedEmail({
               
               <Text style={orderDetailLabel}>Shipping Address:</Text>
               <Text style={orderDetailValue}>
-                {shippingAddress.name}<br />
-                {shippingAddress.address}<br />
-                {shippingAddress.city}, {shippingAddress.postalCode}<br />
-                {shippingAddress.country}
+                {shippingAddress?.name || customerName || 'Valued Customer'}<br />
+                {shippingAddress?.address || 'Nairobi, Kenya'}<br />
+                {shippingAddress?.city || 'Nairobi'}{shippingAddress?.postalCode ? `, ${shippingAddress.postalCode}` : ''}<br />
+                {shippingAddress?.country || 'Kenya'}
               </Text>
             </Section>
 

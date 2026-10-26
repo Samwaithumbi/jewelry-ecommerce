@@ -1,10 +1,3 @@
-/**
- * lib/env.ts
- *
- * Central environment configuration validator for Lumina Jewelry.
- * Distinguishes mandatory runtime dependencies from optional third-party integrations.
- * Fails with clear, non-sensitive error messages without printing secrets or .env content.
- */
 
 export interface EnvValidationReport {
   valid: boolean;
@@ -17,14 +10,15 @@ export const MANDATORY_ENV_VARS = [
   'UPSTASH_REDIS_REST_URL',
   'UPSTASH_REDIS_REST_TOKEN',
   'NEXTAUTH_SECRET',
-] as const;
-
-export const OPTIONAL_INTEGRATION_VARS = [
   'MPESA_CONSUMER_KEY',
   'MPESA_CONSUMER_SECRET',
   'MPESA_SHORTCODE',
   'MPESA_PASSKEY',
   'MPESA_CALLBACK_URL',
+  'MPESA_ENV',
+] as const;
+
+export const OPTIONAL_INTEGRATION_VARS = [
   'CRON_SECRET',
   'RESEND_API_KEY',
   'EMAIL_FROM',
@@ -32,6 +26,7 @@ export const OPTIONAL_INTEGRATION_VARS = [
   'S3_SECRET_KEY',
   'S3_ENDPOINT',
   'R2_BUCKET_NAME',
+  'R2_PUBLIC_URL',
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
 ] as const;
@@ -45,7 +40,11 @@ export function validateEnv(): EnvValidationReport {
   const missingOptional: string[] = [];
 
   for (const varName of MANDATORY_ENV_VARS) {
-    if (!process.env[varName] || process.env[varName]?.trim() === '') {
+    let val = process.env[varName];
+    if (varName === 'MPESA_ENV' && (!val || val.trim() === '')) {
+      val = process.env.MPESA_ENVIRONMENT;
+    }
+    if (!val || val.trim() === '') {
       missingMandatory.push(varName);
     }
   }

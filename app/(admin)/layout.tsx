@@ -3,6 +3,9 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import AppSidebar from "@/components/app-sidebar"
+import { db } from "@/lib/db"
+import { users } from "@/drizzle/src/db/schema"
+import { eq } from "drizzle-orm"
 
 export default async function AdminLayout({
   children,
@@ -17,7 +20,22 @@ export default async function AdminLayout({
   }
 
   // Non-admin users are sent back to the homepage
-  if ((session.user as any).role !== "admin") {
+  if (session.user.role !== "admin") {
+    redirect("/")
+  }
+
+  // Authoritative DB role check (defense-in-depth against stale JWT)
+  const userEmail = session.user.email
+  if (!userEmail) {
+    redirect("/")
+  }
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.email, userEmail.toLowerCase()),
+    columns: { role: true },
+  })
+
+  if (!dbUser || dbUser.role !== "admin") {
     redirect("/")
   }
 

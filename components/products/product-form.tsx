@@ -11,6 +11,7 @@ import { ImageUpload } from ".././image-upload";
 import { Label } from ".././ui/label";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
+import { toast } from "sonner";
 
 interface ProductFormProps {
   initialData?: (ProductFormValues & { id: string }) | null;
@@ -78,13 +79,15 @@ export function ProductForm({ initialData }: ProductFormProps) {
         };
         if (initialData) {
           await updateProduct(initialData.id, payload);
+          toast.success("Product updated successfully");
         } else {
           await createProduct(payload);
+          toast.success("Product created successfully");
         }
         router.push("/admin-dashboard/products");
-      } catch (error) {
+      } catch (error: any) {
         console.error("Form submission error", error);
-        alert("An error occurred while saving the product.");
+        toast.error(error?.message || "An error occurred while saving the product.");
       }
     });
   };

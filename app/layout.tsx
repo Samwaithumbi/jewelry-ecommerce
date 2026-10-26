@@ -1,5 +1,5 @@
 import "./globals.css"
-
+import { Toaster } from "sonner"
 export const metadata = {
      // ...your existing metadata
      verification: {
@@ -15,6 +15,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans">
+         <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        duration={3000}
+      />
         {children}
       </body>
     </html>

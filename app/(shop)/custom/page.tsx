@@ -15,6 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PhotoUpload } from '@/components/shop/photo-upload';
 import { Sparkles, Loader2, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function CustomOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,11 +53,12 @@ export default function CustomOrderPage() {
       
       if (data.success) {
         setIsSuccess(true);
+        toast.success('Your custom jewelry request has been submitted successfully!');
       } else {
-        alert(data.error || 'Failed to submit request');
+        toast.error(data.error || 'Failed to submit request');
       }
     } catch (error) {
-      alert('An error occurred. Please try again.');
+      toast.error('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

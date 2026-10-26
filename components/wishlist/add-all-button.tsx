@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { ShoppingBag, Loader2, Check } from "lucide-react"
 import { addAllWishlistToCart } from "@/app/actions/cart/add-all-wishlist-to-cart"
+import { toast } from "sonner"
 
 interface AddAllToCartButtonProps {
   itemCount: number
@@ -22,9 +23,13 @@ export function AddAllToCartButton({ itemCount }: AddAllToCartButtonProps) {
         if (res.success) {
           window.dispatchEvent(new Event("cart-update"))
           setIsSuccess(true)
+          toast.success(`Added all ${res.count} items to your cart!`)
           setTimeout(() => setIsSuccess(false), 2500)
+        } else {
+          toast.error("Could not add items to cart")
         }
-      } catch (err) {
+      } catch (err: any) {
+        toast.error(err?.message || "Failed to add all items to cart")
         console.error("Failed to add all to cart:", err)
       }
     })

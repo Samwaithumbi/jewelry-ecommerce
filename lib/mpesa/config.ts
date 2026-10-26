@@ -39,7 +39,7 @@ export function getMpesaConfig(): MpesaConfig {
   const shortcode = process.env.MPESA_SHORTCODE;
   const passkey = process.env.MPESA_PASSKEY;
   const callbackUrl = process.env.MPESA_CALLBACK_URL;
-  const environment = (process.env.MPESA_ENV || 'sandbox') as MpesaEnvironment;
+  const environment = (process.env.MPESA_ENV || process.env.MPESA_ENVIRONMENT || 'sandbox') as MpesaEnvironment;
 
   // Validate required environment variables
   if (!consumerKey) {

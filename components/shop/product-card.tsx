@@ -9,6 +9,7 @@ import { useState, useTransition } from "react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { addToWishlist } from "@/app/actions/wishlist/add-to-wishlist"
+import { toast } from "sonner"
 
 interface ProductCardProps {
   product: {
@@ -43,13 +44,19 @@ export function ProductCard({ product }: ProductCardProps) {
     e.stopPropagation()
     startTransition(async () => {
       try {
-        await addToWishlist(product.id)
-        setIsWishlisted(!isWishlisted)
-        window.dispatchEvent(new Event("wishlist-update"))
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('logged in')) {
-          router.push('/sign_in?callbackUrl=/products')
+        const res = await addToWishlist(product.id)
+        if (!res.success) {
+          toast.error(res.message || 'Please log in to add items to your wishlist')
+          if (res.message?.includes('logged in')) {
+            router.push('/sign_in?callbackUrl=/products')
+          }
+          return
         }
+        setIsWishlisted(!isWishlisted)
+        toast.success(res.message || 'Added to wishlist')
+        window.dispatchEvent(new Event("wishlist-update"))
+      } catch (error: any) {
+        toast.error(error?.message || 'Failed to update wishlist')
       }
     })
   }

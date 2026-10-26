@@ -109,11 +109,6 @@ export default async function AccountOverview() {
           <div>
             <div className="flex items-center gap-2.5">
               <h2 className="text-xl font-serif font-semibold text-[#111827]">Recent Orders</h2>
-              {totalOrders > 0 && (
-                <span className="inline-flex items-center rounded-full bg-[#FAF8F4] border border-[#E8E0D5] px-2.5 py-0.5 text-xs font-semibold text-[#B88E2F]">
-                  {totalOrders} total
-                </span>
-              )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               {totalOrders > 3

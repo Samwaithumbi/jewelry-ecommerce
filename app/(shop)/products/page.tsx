@@ -218,8 +218,8 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined
 
-  // ── Run all DB queries in parallel ─────────────────────────────────────────
-  const [productsList, [{ total: totalProducts }], categoryRows, metalRows, stoneRows, allImages] =
+  // ── Run DB queries in parallel with fault-tolerance ─────────────────────────
+  const [productsList, totalRows, categoryRows, metalRows, stoneRows] =
     await Promise.all([
       // 1. Paginated product list
       (() => {
@@ -235,23 +235,35 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
       db
         .select({ total: count() })
         .from(products)
-        .where(whereClause),
+        .where(whereClause)
+        .catch((err) => {
+          console.warn("[ProductsPage] Failed to fetch total product count:", err)
+          return [{ total: 0 }]
+        }),
 
-      // 3. Count per category
+      // 3. Count per category (sidebar filter badge)
       db
         .select({ category: products.category, cnt: count() })
         .from(products)
         .where(eq(products.active, true))
-        .groupBy(products.category),
+        .groupBy(products.category)
+        .catch((err) => {
+          console.warn("[ProductsPage] Failed to fetch category counts:", err)
+          return []
+        }),
 
-      // 4. Count per metal type
+      // 4. Count per metal type (sidebar filter badge)
       db
         .select({ metalType: products.metalType, cnt: count() })
         .from(products)
         .where(eq(products.active, true))
-        .groupBy(products.metalType),
+        .groupBy(products.metalType)
+        .catch((err) => {
+          console.warn("[ProductsPage] Failed to fetch metal counts:", err)
+          return []
+        }),
 
-      // 5. Count per stone type (distinct products via variants)
+      // 5. Count per stone type (sidebar filter badge)
       db
         .select({
           stoneType: productVariants.stoneType,
@@ -259,11 +271,14 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
         })
         .from(productVariants)
         .where(eq(productVariants.active, true))
-        .groupBy(productVariants.stoneType),
-
-      // 6. Primary images for the products on this page (fetched post-query via inArray below)
-      Promise.resolve([] as { productId: string; url: string; altText: string | null }[]),
+        .groupBy(productVariants.stoneType)
+        .catch((err) => {
+          console.warn("[ProductsPage] Failed to fetch stone counts:", err)
+          return []
+        }),
     ])
+
+  const totalProducts = totalRows[0]?.total ?? 0
 
   // Fetch images now that we have productIds
   const productIds = productsList.map((p) => p.id)
@@ -331,7 +346,7 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
               <ProductFilters counts={filterCounts} />
             </div>
             <div className="flex-1 w-full flex flex-col">
-              <ProductToolbar totalCount={0} />
+              <ProductToolbar totalCount={0} filterCounts={filterCounts} />
               <div className="flex flex-col items-center justify-center py-32 text-center gap-4">
                 <div className="flex size-20 items-center justify-center rounded-full bg-primary/5">
                   <PackageSearch className="size-10 text-muted-foreground/50" />
@@ -365,9 +380,9 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
           </div>
 
           <div className="flex-1 w-full flex flex-col">
-            <ProductToolbar totalCount={totalProducts} />
+            <ProductToolbar totalCount={totalProducts} filterCounts={filterCounts} />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {displayProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

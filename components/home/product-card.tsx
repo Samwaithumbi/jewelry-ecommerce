@@ -2,7 +2,9 @@
 
 import Link from "next/link"
 import { Heart, Star } from "lucide-react"
-import { useState } from "react"
+import { useState, useTransition } from "react"
+import { addToWishlist } from "@/app/actions/wishlist/add-to-wishlist"
+import { toast } from "sonner"
 
 interface ProductCardProps {
   id: string
@@ -28,6 +30,7 @@ export function ProductCard({
   tag,
 }: ProductCardProps) {
   const [isWishlisted, setIsWishlisted] = useState(false)
+  const [isPending, startTransition] = useTransition()
 
   return (
     <Link href={`/shop/${id}`} className="group block">
@@ -47,11 +50,26 @@ export function ProductCard({
         
         {/* Wishlist Button */}
         <button
+          disabled={isPending}
           onClick={(e) => {
             e.preventDefault()
-            setIsWishlisted(!isWishlisted)
+            e.stopPropagation()
+            startTransition(async () => {
+              try {
+                const res = await addToWishlist(id)
+                if (!res.success) {
+                  toast.error(res.message || "Please log in to add items to your wishlist")
+                  return
+                }
+                setIsWishlisted(!isWishlisted)
+                toast.success(res.message || "Added to wishlist")
+                window.dispatchEvent(new Event("wishlist-update"))
+              } catch (err: any) {
+                toast.error(err?.message || "Failed to update wishlist")
+              }
+            })
           }}
-          className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white transition-colors"
+          className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white transition-colors disabled:opacity-50"
         >
           <Heart
             className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : "text-gray-600"}`}

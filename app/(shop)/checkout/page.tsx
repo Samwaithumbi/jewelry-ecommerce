@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Loader2, MapPin, Phone, Mail, CreditCard, Package, Check } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 type CheckoutStep = 'shipping' | 'payment' | 'review';
 
@@ -113,6 +114,8 @@ export default function CheckoutPage() {
   const handleShippingSubmit = () => {
     if (validateShippingForm()) {
       setCurrentStep('payment');
+    } else {
+      toast.error('Please fill in all required shipping fields');
     }
   };
 
@@ -140,14 +143,18 @@ export default function CheckoutPage() {
         setPriceChanged(true);
         setPriceChangesList(result.priceChanges || []);
         setOrderError(result.error || 'Prices have changed since items were added to your cart.');
+        toast.warning('Item prices have been updated. Please confirm to proceed.');
         // Refresh cart in state to reflect updated prices
         const refreshedCart = await getCart();
         setCart(refreshedCart);
       } else {
         setOrderError(result.error || 'Failed to create order');
+        toast.error(result.error || 'Failed to create order');
       }
     } catch (error) {
-      setOrderError(error instanceof Error ? error.message : 'Failed to create order');
+      const msg = error instanceof Error ? error.message : 'Failed to create order';
+      setOrderError(msg);
+      toast.error(msg);
     } finally {
       setOrderLoading(false);
     }
@@ -206,21 +213,21 @@ export default function CheckoutPage() {
   ] as const;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-6 sm:py-8 px-3.5 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <Link href="/products" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4 transition-colors">
+        <div className="mb-6 sm:mb-8">
+          <Link href="/products" className="inline-flex items-center text-xs sm:text-sm text-gray-600 hover:text-gray-900 mb-3 transition-colors">
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to products
           </Link>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Checkout</h1>
-          <p className="text-gray-600">Complete your order in just a few steps</p>
+          <h1 className="text-2xl sm:text-4xl font-serif font-bold text-gray-900 mb-1 sm:mb-2">Checkout</h1>
+          <p className="text-xs sm:text-sm text-gray-600">Complete your order in just a few steps</p>
         </div>
 
         {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between max-w-2xl mx-auto">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex items-center justify-between max-w-2xl mx-auto px-2">
             {steps.map((step, index) => {
               const StepIcon = step.icon;
               const isCompleted = steps.findIndex(s => s.id === currentStep) > index;
@@ -230,17 +237,17 @@ export default function CheckoutPage() {
                 <div key={step.id} className="flex items-center flex-1">
                   <div className="flex flex-col items-center flex-1">
                     <div className={`
-                      w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all
-                      ${isCompleted ? 'bg-[#B88E2F] text-white' : isCurrent ? 'bg-[#B88E2F] text-white' : 'bg-gray-200 text-gray-400'}
+                      w-9 h-9 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mb-1.5 transition-all
+                      ${isCompleted ? 'bg-[#B88E2F] text-white shadow-xs' : isCurrent ? 'bg-[#B88E2F] text-white shadow-xs' : 'bg-gray-200 text-gray-400'}
                     `}>
-                      {isCompleted ? <Check className="h-6 w-6" /> : <StepIcon className="h-6 w-6" />}
+                      {isCompleted ? <Check className="h-4 w-4 sm:h-6 sm:w-6" /> : <StepIcon className="h-4 w-4 sm:h-6 sm:w-6" />}
                     </div>
-                    <span className={`text-sm font-medium ${isCurrent ? 'text-[#B88E2F]' : isCompleted ? 'text-gray-900' : 'text-gray-400'}`}>
+                    <span className={`text-[11px] sm:text-sm font-medium ${isCurrent ? 'text-[#B88E2F]' : isCompleted ? 'text-gray-900' : 'text-gray-400'}`}>
                       {step.label}
                     </span>
                   </div>
                   {index < steps.length - 1 && (
-                    <div className={`flex-1 h-0.5 mx-4 ${isCompleted ? 'bg-[#B88E2F]' : 'bg-gray-200'}`} />
+                    <div className={`flex-1 h-0.5 mx-1.5 sm:mx-4 ${isCompleted ? 'bg-[#B88E2F]' : 'bg-gray-200'}`} />
                   )}
                 </div>
               );

@@ -50,13 +50,13 @@ const socialLinks = [
 
 export function Footer() {
   return (
-    <footer className="bg-gradient-to-b from-gray-900 to-black text-white py-16">
-      <div className="container mx-auto px-6 lg:px-12">
-        <div className="grid md:grid-cols-4 gap-12 mb-12">
+    <footer className="bg-gradient-to-b from-gray-900 to-black text-white py-12 sm:py-16">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 mb-12">
           {/* Logo & Tagline */}
-          <div className="md:col-span-1">
+          <div className="sm:col-span-2 lg:col-span-2">
             <h3 className="text-2xl font-playfair-display mb-4">LUMINA JEWELS</h3>
-            <p className="text-gray-400 text-sm leading-relaxed mb-6">
+            <p className="text-gray-400 text-sm leading-relaxed mb-6 max-w-md">
               Crafting extraordinary jewelry for life's most meaningful moments. Every piece tells a story, every stone holds a memory.
             </p>
             {/* Social Icons */}

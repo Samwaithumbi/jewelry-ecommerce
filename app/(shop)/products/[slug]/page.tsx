@@ -16,7 +16,7 @@ import { ProductClient } from "@/components/shop/product-client"
 import { SizeGuideDialog } from "@/components/shop/size-guide-dialog"
 import { ProductCard } from "@/components/shop/product-card"
 import { Badge } from "@/components/ui/badge"
-import { ShieldCheck, ArrowRight, ExternalLink } from "lucide-react"
+import { ArrowRight  } from "lucide-react"
 
 export const revalidate = 3600 // 1 hour ISR
 

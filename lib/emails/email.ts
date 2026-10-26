@@ -11,8 +11,19 @@ import OrderShippedEmail from '@/components/templates/order-shipped';
 import OrderDeliveredEmail from '@/components/templates/order-delivered';
 import CustomRequestEmail from '@/components/templates/custom-request';
 import PaymentFailedEmail from '@/components/templates/payment-failed';
+import VerificationEmail from '@/components/templates/verification-email';
+import PasswordResetEmail from '@/components/templates/password-reset-email';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResendClient(): Resend {
+  const apiKey = (process.env.RESEND_API_KEY || (process.env as any)['RESEND_API_KEY '])?.trim();
+  return new Resend(apiKey);
+}
+
+const resend = new Proxy({} as Resend, {
+  get(_target, prop) {
+    return (getResendClient() as any)[prop];
+  },
+});
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM || 'onboarding@resend.dev';
 const STORE_NAME = process.env.NEXT_PUBLIC_STORE_NAME || 'Lumina Jewels';
@@ -22,21 +33,21 @@ const STORE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://yourstore.com';
  * In Resend sandbox mode (no verified domain) you can only send to your own
  * email. Set DEV_EMAIL_OVERRIDE in .env to your Resend account email to
  * redirect all outgoing mail there during development.
- * Remove this variable (or set RESEND_FROM_EMAIL to a verified-domain address)
- * once you have verified a domain at resend.com/domains.
  */
-const DEV_EMAIL_OVERRIDE = process.env.DEV_EMAIL_OVERRIDE;
-
-/** Returns the actual recipient(s), applying dev override when needed. */
 function resolveRecipient(customerEmail: string, originalSubject: string): { to: string[]; subject: string } {
-  if (DEV_EMAIL_OVERRIDE && DEV_EMAIL_OVERRIDE !== customerEmail) {
+  const devEmail = (process.env.DEV_EMAIL_OVERRIDE || (process.env as any)['DEV_EMAIL_OVERRIDE '])?.trim();
+  const cleanCustomerEmail = customerEmail?.trim() || '';
+
+  if (devEmail) {
     return {
-      to: [DEV_EMAIL_OVERRIDE],
-      // Prepend original recipient so you can tell which email was triggered
-      subject: `[DEV → ${customerEmail}] ${originalSubject}`,
+      to: [devEmail],
+      subject: cleanCustomerEmail ? `[DEV → ${cleanCustomerEmail}] ${originalSubject}` : originalSubject,
     };
   }
-  return { to: [customerEmail], subject: originalSubject };
+  if (cleanCustomerEmail) {
+    return { to: [cleanCustomerEmail], subject: originalSubject };
+  }
+  return { to: ['samuelwaithumbi6@gmail.com'], subject: `[DEV Fallback] ${originalSubject}` };
 }
 
 interface OrderConfirmedData {
@@ -466,4 +477,73 @@ export async function sendPaymentFailedEmailAsync(orderId: string, failureReason
     console.error('Error in sendPaymentFailedEmailAsync:', error);
   }
 }
+
+export interface VerificationEmailData {
+  customerEmail: string;
+  customerName?: string;
+  token: string;
+}
+
+export async function sendAccountVerificationEmail(data: VerificationEmailData) {
+  try {
+    const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const verificationUrl = `${appUrl}/verify-email?token=${encodeURIComponent(data.token)}&email=${encodeURIComponent(data.customerEmail)}`;
+    const originalSubject = 'Verify your email address - Lumina Jewels';
+    const { to, subject } = resolveRecipient(data.customerEmail, originalSubject);
+
+    const emailHtml = await render(
+      VerificationEmail({
+        customerName: data.customerName,
+        verificationUrl,
+      })
+    );
+
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject,
+      html: emailHtml,
+    });
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error sending account verification email:', error);
+    return { success: false, error };
+  }
+}
+
+export interface PasswordResetEmailData {
+  customerEmail: string;
+  customerName?: string;
+  token: string;
+}
+
+export async function sendPasswordResetEmail(data: PasswordResetEmailData) {
+  try {
+    const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const resetUrl = `${appUrl}/reset-password?token=${encodeURIComponent(data.token)}&email=${encodeURIComponent(data.customerEmail)}`;
+    const originalSubject = 'Reset your password - Lumina Jewels';
+    const { to, subject } = resolveRecipient(data.customerEmail, originalSubject);
+
+    const emailHtml = await render(
+      PasswordResetEmail({
+        customerName: data.customerName,
+        resetUrl,
+      })
+    );
+
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject,
+      html: emailHtml,
+    });
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    return { success: false, error };
+  }
+}
+
 

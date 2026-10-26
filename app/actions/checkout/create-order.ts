@@ -152,11 +152,10 @@ export async function createOrderFromCart(
         });
       }
 
-      // Validate engraving price if applicable
+      // F-22: Server-authoritative engraving price (1500 cents), never trust client-controlled cart
       const hasEngraving = Boolean(item.engravingText && item.engravingText.trim().length > 0);
-      const engravingPriceCents = hasEngraving && item.engravingPriceCents && item.engravingPriceCents > 0
-        ? Math.round(item.engravingPriceCents)
-        : null;
+      const STANDARD_ENGRAVING_PRICE_CENTS = 1500;
+      const engravingPriceCents = hasEngraving ? STANDARD_ENGRAVING_PRICE_CENTS : null;
 
       verifiedItems.push({
         productId: item.productId,
@@ -210,7 +209,9 @@ export async function createOrderFromCart(
     }
 
     const shippingCents = 0; // Free shipping
-    const giftWrapCents = giftOptions?.isGiftWrap ? 100 : 0; // Ksh 1 in cents
+    // F-24: Standard gift wrap price (Ksh 500 = 50,000 cents)
+    const GIFT_WRAP_PRICE_CENTS = 50000;
+    const giftWrapCents = giftOptions?.isGiftWrap ? GIFT_WRAP_PRICE_CENTS : 0;
     const discountCents = 0;
     const taxableAmount = Math.max(0, subtotalCents + giftWrapCents - discountCents);
     const taxCents = Math.round(taxableAmount * 0.16); // 16% VAT
@@ -329,13 +330,9 @@ export async function createOrderFromCart(
       });
     }
 
-    // 8. Clear cart after successful order creation & reservation
-    try {
-      const { clearCart } = await import('@/app/actions/cart/clear-cart');
-      await clearCart(sessionId);
-    } catch (clearErr) {
-      console.warn('Failed to clear cart after order creation:', clearErr);
-    }
+    // 8. Note on cart clearing:
+    // Cart is intentionally preserved here. It is cleared on the checkout success page
+    // after payment confirmation, so if payment fails or expires, the customer's cart remains intact.
 
     return {
       success: true,

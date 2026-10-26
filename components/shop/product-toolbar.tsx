@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
-import { LayoutGrid, List, Search, Sparkles, ScanLine } from "lucide-react"
+import { LayoutGrid, List, Search, Sparkles, ScanLine, SlidersHorizontal } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -12,12 +12,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
+import { ProductFilters, type FilterCounts } from "@/components/shop/product-filters"
 
 interface ProductToolbarProps {
   totalCount?: number
+  filterCounts?: FilterCounts
 }
 
-export function ProductToolbar({ totalCount }: ProductToolbarProps) {
+export function ProductToolbar({ totalCount, filterCounts }: ProductToolbarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -31,8 +40,8 @@ export function ProductToolbar({ totalCount }: ProductToolbarProps) {
   }
 
   return (
-    <div className="flex w-full items-center justify-between gap-4 py-3 mb-6 bg-transparent z-20">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
+    <div className="flex w-full items-center justify-between gap-3 sm:gap-4 py-3 mb-6 bg-transparent z-20 flex-wrap sm:flex-nowrap">
+      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground font-medium">
         <LayoutGrid className="size-4 text-[#B88E2F]" />
         <span>
           {typeof totalCount === "number"
@@ -41,10 +50,40 @@ export function ProductToolbar({ totalCount }: ProductToolbarProps) {
         </span>
       </div>
 
-      <div className="flex flex-1 items-center justify-end gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+        {/* Mobile Filters Sheet Trigger */}
+        <div className="lg:hidden">
+          <Sheet>
+            <SheetTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full bg-white h-10 px-3.5 border-primary/10 shadow-sm font-medium text-xs text-[#111827] hover:border-[#B88E2F]/50 flex items-center gap-1.5"
+                  >
+                    <SlidersHorizontal className="size-3.5 text-[#B88E2F]" />
+                    <span>Filters</span>
+                  </Button>
+                }
+              />
+            <SheetContent side="left" className="w-full sm:w-[380px] p-0 flex flex-col">
+              <SheetHeader className="p-4 border-b border-primary/10">
+                <SheetTitle className="text-base font-serif font-semibold text-[#111827] flex items-center gap-2">
+                  <SlidersHorizontal className="size-4 text-[#B88E2F]" />
+                  Filter Jewelry
+                </SheetTitle>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto p-4">
+                <ProductFilters counts={filterCounts} />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+
         {/* Sort */}
         <Select defaultValue={searchParams.get("sort") || "popular"} onValueChange={handleSortChange}>
-          <SelectTrigger className="w-[170px] rounded-full bg-white h-10 border-primary/10 shadow-sm font-medium text-xs sm:text-sm hover:border-[#B88E2F]/50 transition-colors">
+          <SelectTrigger className="w-[140px] sm:w-[170px] rounded-full bg-white h-10 border-primary/10 shadow-sm font-medium text-xs sm:text-sm hover:border-[#B88E2F]/50 transition-colors">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
           <SelectContent className="rounded-xl shadow-lg border-primary/10">

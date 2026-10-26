@@ -10,6 +10,7 @@ import { addToCart } from "@/app/actions/cart/add-to-cart"
 import { CartItem } from "@/types/cart"
 import { useTransition } from "react"
 import { EngravingPreview } from "./engraving-preview"
+import { toast } from "sonner"
 
 interface Variant {
   id: string
@@ -89,9 +90,14 @@ export function ProductClient({
     }
 
     startTransition(async () => {
-      await addToCart(cartItem)
-      // Dispatch event to update cart count in navbar
-      window.dispatchEvent(new Event('cart-update'))
+      try {
+        await addToCart(cartItem)
+        toast.success(`Added ${productName} to your cart!`)
+        // Dispatch event to update cart count in navbar
+        window.dispatchEvent(new Event('cart-update'))
+      } catch (err: any) {
+        toast.error(err?.message || 'Failed to add item to cart')
+      }
     })
   }
 
@@ -237,12 +243,12 @@ export function ProductClient({
 
         {/* Quantity & Actions */}
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center border border-primary/20 rounded-full h-12 bg-white px-1">
+          <div className="flex flex-col min-[480px]:flex-row items-stretch min-[480px]:items-center gap-3 sm:gap-4">
+            <div className="flex items-center justify-between min-[480px]:justify-center border border-primary/20 rounded-full h-12 bg-white px-3 min-[480px]:px-1 shrink-0">
               <button 
                 type="button"
                 aria-label="Decrease quantity"
-                className="w-10 h-full flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+                className="w-8 min-[480px]:w-6 h-full flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
                 onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
                 disabled={isOutOfStock || quantity <= 1}
               >
@@ -254,7 +260,7 @@ export function ProductClient({
               <button 
                 type="button"
                 aria-label="Increase quantity"
-                className="w-10 h-full flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+                className="w-8 min-[480px]:w-6 h-full flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
                 onClick={() => setQuantity((prev) => {
                   const maxAllowed = currentVariant && currentVariant.stockQty > 0 ? currentVariant.stockQty : 99
                   return Math.min(maxAllowed, prev + 1)
@@ -265,44 +271,50 @@ export function ProductClient({
               </button>
             </div>
             
-            <Button
-              type="button"
-              className="flex-1 h-12 rounded-full bg-[#111827] text-white hover:bg-[#111827]/90 shadow-sm text-base font-semibold transition-all hover:shadow-md"
-              disabled={isOutOfStock || isPending}
-              onClick={handleAddToCart}
-            >
-              {isPending ? (
-                <Loader2 className="size-5 mr-2 animate-spin" />
-              ) : isOutOfStock ? (
-                "Out of Stock"
-              ) : (
-                <ShoppingCart className="size-5 mr-2" />
-              )}
-              {!isOutOfStock && !isPending && "Add to Cart"}
-            </Button>
-            
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              disabled={isPending}
-              onClick={() => {
-                startTransition(async () => {
-                  try {
-                    const { addToWishlist } = await import("@/app/actions/wishlist/add-to-wishlist")
-                    await addToWishlist(productId, currentVariant?.id)
-                    // Dispatch wishlist update event
-                    window.dispatchEvent(new Event('wishlist-update'))
-                  } catch (e) {
-                    console.error(e)
-                  }
-                })
-              }}
-              className="size-12 rounded-full border-primary/20 bg-white text-muted-foreground hover:text-red-500 hover:border-red-200 transition-all hover:scale-105 shadow-sm"
-              aria-label="Save to wishlist"
-            >
-              <Heart className="size-5" />
-            </Button>
+            <div className="flex items-center gap-3 flex-1">
+              <Button
+                type="button"
+                className="flex-1 h-12 rounded-full bg-[#111827] text-white hover:bg-[#111827]/90 shadow-sm text-sm sm:text-base font-semibold transition-all hover:shadow-md"
+                disabled={isOutOfStock || isPending}
+                onClick={handleAddToCart}
+              >
+                {isPending ? (
+                  <Loader2 className="size-5 mr-2 animate-spin" />
+                ) : isOutOfStock ? (
+                  "Out of Stock"
+                ) : (
+                  <ShoppingCart className="size-5 mr-2" />
+                )}
+                {!isOutOfStock && !isPending && "Add to Cart"}
+              </Button>
+              
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={isPending}
+                onClick={() => {
+                  startTransition(async () => {
+                      try {
+                        const { addToWishlist } = await import("@/app/actions/wishlist/add-to-wishlist")
+                        const res = await addToWishlist(productId, currentVariant?.id)
+                        if (!res.success) {
+                          toast.error(res.message || 'Failed to add item to wishlist')
+                          return
+                        }
+                        toast.success(res.message || 'Added to wishlist')
+                        window.dispatchEvent(new Event('wishlist-update'))
+                      } catch (e: any) {
+                        toast.error(e?.message || 'Failed to add item to wishlist')
+                      }
+                  })
+                }}
+                className="size-12 shrink-0 rounded-full border-primary/20 bg-white text-muted-foreground hover:text-red-500 hover:border-red-200 transition-all hover:scale-105 shadow-sm"
+                aria-label="Save to wishlist"
+              >
+                <Heart className="size-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

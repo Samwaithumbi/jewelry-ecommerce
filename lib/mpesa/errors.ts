@@ -216,6 +216,34 @@ export class MpesaConfigError extends MpesaError {
 }
 
 /**
+ * Payment already pending error (prevents duplicate payment submissions)
+ */
+export class PaymentPendingError extends MpesaError {
+  constructor(orderId: string) {
+    super(
+      `A payment is already being processed for order: ${orderId}`,
+      'PAYMENT_PENDING',
+      'A payment prompt has already been sent to your phone. Please check your phone or wait a minute before trying again.'
+    );
+    this.name = 'PaymentPendingError';
+  }
+}
+
+/**
+ * Payment rate limit exceeded error
+ */
+export class PaymentRateLimitError extends MpesaError {
+  constructor(message: string = 'Too many payment requests') {
+    super(
+      message,
+      'PAYMENT_RATE_LIMITED',
+      'Too many payment attempts. Please wait a few minutes before trying again.'
+    );
+    this.name = 'PaymentRateLimitError';
+  }
+}
+
+/**
  * Generic M-PESA error for unexpected scenarios
  */
 export class MpesaGenericError extends MpesaError {
@@ -228,6 +256,7 @@ export class MpesaGenericError extends MpesaError {
     this.name = 'MpesaGenericError';
   }
 }
+
 
 /**
  * Convert M-PESA error to user-friendly response

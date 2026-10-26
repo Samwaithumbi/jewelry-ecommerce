@@ -4,6 +4,7 @@ import { useState, useRef } from "react"
 import { Upload, X, Image as ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 interface PhotoUploadProps {
   onPhotosChange: (photos: string[]) => void
@@ -26,13 +27,13 @@ export function PhotoUpload({ onPhotosChange, maxPhotos = 5 }: PhotoUploadProps)
       
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        alert(`${file.name} is not an image. Please upload only image files.`)
+        toast.error(`${file.name} is not an image. Please upload only image files.`)
         continue
       }
 
       // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
-        alert(`${file.name} is too large. Maximum file size is 5MB.`)
+        toast.error(`${file.name} is too large. Maximum file size is 5MB.`)
         continue
       }
 

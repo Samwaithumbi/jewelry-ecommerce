@@ -23,7 +23,7 @@ export function HeroSection() {
   }, [])
 
   return (
-    <section className="relative w-full h-[90vh] min-h-[600px] overflow-hidden bg-black">
+    <section className="relative w-full h-[85vh] sm:h-[90vh] min-h-[500px] sm:min-h-[600px] overflow-hidden bg-black">
       {/* Background Images with smooth cross-fade */}
       {BACKGROUND_IMAGES.map((img, index) => (
         <div
@@ -38,25 +38,25 @@ export function HeroSection() {
       ))}
 
       {/* Luxury Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent z-10" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-black/30 z-10" />
 
       {/* Content (Static) */}
       <div className="relative z-20 h-full flex items-center">
-        <div className="container mx-auto px-6 lg:px-12">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-12">
           <div className="max-w-2xl">
             {/* AI Badge */}
-            <div className="inline-flex items-center gap-2 bg-[#B8860B] text-white px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <Sparkles className="w-4 h-4" />
+            <div className="inline-flex items-center gap-2 bg-[#B8860B] text-white px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium mb-4 sm:mb-6">
+              <Sparkles className="w-3.5 h-3.5" />
               <span>AI-POWERED JEWELRY DISCOVERY</span>
             </div>
 
             {/* Headline */}
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-playfair-display text-white leading-tight mb-6">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-playfair-display text-white leading-tight mb-4 sm:mb-6">
               Jewelry Crafted for Life&apos;s Most Meaningful Moments
             </h1>
 
             {/* Subheadline */}
-            <p className="text-lg md:text-xl text-gray-200 mb-8 font-light leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-gray-200 mb-6 sm:mb-8 font-light leading-relaxed">
               Every piece tells a story. Discover our curated collection of certified, ethically sourced fine jewelry.
             </p>
 

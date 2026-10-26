@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { WishlistItem } from "@/app/actions/wishlist/get-wishlist"
 import { addToCart } from "@/app/actions/cart/add-to-cart"
 import { useState, useTransition } from "react"
+import { toast } from "sonner"
 
 interface WishlistGridProps {
   items: WishlistItem[]
@@ -23,7 +24,10 @@ export function WishlistGrid({ items, onRemove }: WishlistGridProps) {
     setRemovingId(wishlistId)
     try {
       await onRemove(wishlistId)
+      toast.success("Item removed from wishlist")
       window.dispatchEvent(new Event("wishlist-update"))
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to remove item from wishlist")
     } finally {
       setRemovingId(null)
     }
@@ -42,12 +46,14 @@ export function WishlistGrid({ items, onRemove }: WishlistGridProps) {
           priceAtAdd: item.productPrice,
           qty: 1,
         })
+        toast.success(`Added ${item.productName} to your cart`)
         window.dispatchEvent(new Event("cart-update"))
         setAddedIds((prev) => ({ ...prev, [item.id]: true }))
         setTimeout(() => {
           setAddedIds((prev) => ({ ...prev, [item.id]: false }))
         }, 2000)
-      } catch (err) {
+      } catch (err: any) {
+        toast.error(err?.message || "Failed to add item to cart")
         console.error("Failed to add wishlist item to cart:", err)
       } finally {
         setAddingId(null)
@@ -56,7 +62,7 @@ export function WishlistGrid({ items, onRemove }: WishlistGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
       {items.map((item) => (
         <div key={item.id} className="group relative flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm transition-all hover:shadow-md border border-primary/5">
           {/* Wishlist Heart Icon */}

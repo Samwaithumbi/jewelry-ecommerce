@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle2, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface MpesaPaymentFormProps {
   orderId: string;
@@ -89,6 +90,7 @@ export function MpesaPaymentForm({
         if (data.success) {
           if (data.status === 'success') {
             setStatus('success');
+            toast.success('M-Pesa payment confirmed successfully!');
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new Event('cart-update'));
             }
@@ -98,6 +100,7 @@ export function MpesaPaymentForm({
           } else if (data.status === 'cancelled' || data.status === 'failed') {
             setStatus(data.status);
             setError(data.error || 'Payment failed. Please try again.');
+            toast.error(data.error || 'Payment failed. Please try again.');
             onFailure?.(data.error || 'Payment failed');
             clearInterval(pollInterval);
             clearInterval(countdownInterval);
@@ -107,6 +110,7 @@ export function MpesaPaymentForm({
           if (data.status === 'cancelled' || data.status === 'failed') {
             setStatus(data.status);
             setError(data.error || 'Payment failed. Please try again.');
+            toast.error(data.error || 'Payment failed. Please try again.');
             onFailure?.(data.error || 'Payment failed');
             clearInterval(pollInterval);
             clearInterval(countdownInterval);
@@ -148,6 +152,7 @@ export function MpesaPaymentForm({
   const handleInitiatePayment = async () => {
     if (!validatePhoneNumber(phoneNumber)) {
       setError('Please enter a valid Kenyan phone number');
+      toast.error('Please enter a valid Kenyan phone number (e.g. 0712345678)');
       return;
     }
 
@@ -168,20 +173,21 @@ export function MpesaPaymentForm({
 
       const data = await response.json();
 
-
-
       if (data.success) {
         setPaymentId(data.paymentId);
         setStatus('pending');
         setTimeRemaining(60); // 1 minute
+        toast.info('STK Push prompt sent! Check your phone to enter your PIN.');
       } else {
         setStatus('failed');
         setError(data.error || 'Failed to initiate payment');
+        toast.error(data.error || 'Failed to initiate payment');
         onFailure?.(data.error || 'Failed to initiate payment');
       }
     } catch (err) {
       setStatus('failed');
       setError('Network error. Please check your connection and try again.');
+      toast.error('Network error. Please check your connection and try again.');
       onFailure?.('Network error');
     }
   };

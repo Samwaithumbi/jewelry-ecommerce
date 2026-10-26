@@ -14,6 +14,20 @@ const ALLOWED_TYPES = new Set([
   "image/avif",
 ]);
 
+const MAGIC_BYTES: Record<string, number[]> = {
+  "image/jpeg": [0xFF, 0xD8, 0xFF],
+  "image/png": [0x89, 0x50, 0x4E, 0x47],
+  "image/webp": [0x52, 0x49, 0x46, 0x46], // RIFF
+  "image/gif": [0x47, 0x49, 0x46, 0x38], // GIF8
+};
+
+function hasValidMagicBytes(buffer: Buffer, mimeType: string): boolean {
+  const sig = MAGIC_BYTES[mimeType];
+  if (!sig) return true; // avif or other formats without simple static 3-4 byte prefix
+  if (buffer.length < sig.length) return false;
+  return sig.every((byte, i) => buffer[i] === byte);
+}
+
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
 function errorResponse(message: string, status: number) {
@@ -51,6 +65,9 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    if (!hasValidMagicBytes(buffer, file.type)) {
+      return errorResponse("File content does not match declared image type", 415);
+    }
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "bin";
     const key = `uploads/${randomUUID()}.${ext}`;
 

@@ -112,8 +112,6 @@ export enum PaymentStatus {
  */
 export enum PaymentProvider {
   MPESA = 'mpesa',
-  STRIPE = 'stripe',
-  PAYPAL = 'paypal',
 }
 
 /**

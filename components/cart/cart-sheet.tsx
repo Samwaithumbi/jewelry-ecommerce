@@ -14,7 +14,7 @@ import Image from "next/image";
 export function CartButton({ onClick }: { onClick?: () => void }) {
     const [cartItemCount, setCartItemCount] = useState(0);
 
-   
+
     useEffect(() => {
         const fetchCartCount = async () => {
             const cart = await getCart();
@@ -33,7 +33,7 @@ export function CartButton({ onClick }: { onClick?: () => void }) {
     }, []);
 
     return (
-        
+
         <Button variant="ghost" size="icon" className="relative text-[#111827] hover:text-[#B88E2F]" onClick={onClick}>
             <ShoppingCart className="h-5 w-5" />
             {cartItemCount > 0 && (
@@ -96,7 +96,7 @@ export function CartSheet() {
     return (
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <CartButton onClick={() => setIsOpen(true)} />
-            <SheetContent className="flex w-full flex-col sm:max-w-lg">
+            <SheetContent className="flex w-[100px] flex-col  sm:max-w-[500px]">
                 <SheetHeader>
                     <SheetTitle>Your Cart ({totalItems})</SheetTitle>
                 </SheetHeader>
@@ -107,7 +107,7 @@ export function CartSheet() {
                             <p className="text-lg font-medium">Your cart is empty</p>
                         </div>
                     ) : (
-                        <div className="space-y-6">
+                        <div className="space-y-6 mr-2">
                             {cart.items.map((item, i) => (
                                 <div key={`${item.productId}-${item.variantId || i}`} className="flex items-center space-x-4">
                                     <div className="relative h-16 w-16 overflow-hidden rounded-md border bg-muted">
@@ -170,21 +170,21 @@ export function CartSheet() {
                     )}
                 </div>
                 {cart && cart.items.length > 0 && (
-                    <div className="border-t pt-4 mt-auto">
+                    <div className="border-t pt-4 mt-auto mr-2">
                         <div className="mb-4 flex items-center justify-between font-medium text-lg">
                             <span>Subtotal</span>
-                            <span>Ksh {(subtotal / 100).toFixed(2)}</span>
+                            <span className="">Ksh {(subtotal / 100).toFixed(2)}</span>
                         </div>
-                        <Button 
-                            className="w-full" 
-                            size="lg" 
+                        <Button
+                            className="w-full"
+                            size="lg"
                             disabled={isPending}
-                            onClick={() =>{
-                                 router.push('/checkout')
-                                   setIsOpen(false)
-                                  }
-                                
-                                }
+                            onClick={() => {
+                                router.push('/checkout')
+                                setIsOpen(false)
+                            }
+
+                            }
                         >
                             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Checkout

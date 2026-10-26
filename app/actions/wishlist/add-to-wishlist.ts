@@ -10,7 +10,10 @@ import { revalidatePath } from 'next/cache';
 export async function addToWishlist(productId: string, variantId?: string, note?: string) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    throw new Error('You must be logged in to add items to your wishlist');
+    return {
+      success: false,
+      message: 'You must be logged in to add items to your wishlist',
+    }
   }
 
   try {
@@ -65,7 +68,7 @@ export async function addToWishlist(productId: string, variantId?: string, note?
     revalidatePath('/wishlist');
     revalidatePath('/');
 
-    return { success: true };
+    return { success: true, message: 'Added to wishlist' };
   } catch (error) {
     console.error('Failed to add to wishlist:', error);
     throw new Error('Failed to add item to wishlist');

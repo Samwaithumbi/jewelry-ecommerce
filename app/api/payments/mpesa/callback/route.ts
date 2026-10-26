@@ -12,44 +12,97 @@ import {
   ReconciliationInconclusiveError,
   PaymentNotFoundError,
 } from '@/lib/mpesa/errors';
+import { redis } from '@/lib/redis';
 
-// Sliding-window in-memory rate limiter for callback endpoint protection
-const rateLimitMap = new Map<string, number[]>();
+// Safaricom Daraja production callback IP subnets/ranges
+const SAFARICOM_PROD_IPS = [
+  '196.201.214.',
+  '196.201.213.',
+  '41.223.56.',
+];
+
+/**
+ * Validates whether the incoming request originated from Safaricom.
+ * In sandbox or local development, IP check is bypassed.
+ */
+function isSafaricomIpAllowed(clientIp: string): boolean {
+  const isSandbox = (process.env.MPESA_ENV || process.env.MPESA_ENVIRONMENT || 'sandbox').toLowerCase() === 'sandbox';
+  const isDev = process.env.NODE_ENV !== 'production';
+
+  // Allow in non-production or sandbox environments
+  if (isSandbox || isDev) {
+    return true;
+  }
+
+  // Custom allowed IPs configured via env (comma-separated)
+  const customIps = process.env.SAFARICOM_CALLBACK_IPS
+    ? process.env.SAFARICOM_CALLBACK_IPS.split(',').map(ip => ip.trim())
+    : [];
+
+  if (customIps.includes(clientIp)) {
+    return true;
+  }
+
+  // Check against known Safaricom production subnets
+  return SAFARICOM_PROD_IPS.some(subnet => clientIp.startsWith(subnet));
+}
+
+// In-memory fallback rate limiter in case Redis is temporarily unreachable
+const fallbackRateLimitMap = new Map<string, number[]>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_REQUESTS_PER_WINDOW = 60;
 
-function isRateLimited(ip: string): boolean {
+function isFallbackRateLimited(ip: string): boolean {
   const now = Date.now();
-  const timestamps = rateLimitMap.get(ip) || [];
+  const timestamps = fallbackRateLimitMap.get(ip) || [];
   const validTimestamps = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
 
   if (validTimestamps.length >= MAX_REQUESTS_PER_WINDOW) {
-    rateLimitMap.set(ip, validTimestamps);
+    fallbackRateLimitMap.set(ip, validTimestamps);
     return true;
   }
 
   validTimestamps.push(now);
-  rateLimitMap.set(ip, validTimestamps);
-
-  // Periodic map cleanup
-  if (rateLimitMap.size > 1000) {
-    for (const [key, list] of rateLimitMap.entries()) {
-      if (list.length === 0 || now - list[list.length - 1] > RATE_LIMIT_WINDOW_MS) {
-        rateLimitMap.delete(key);
-      }
-    }
-  }
-
+  fallbackRateLimitMap.set(ip, validTimestamps);
   return false;
+}
+
+/**
+ * Distributed rate limiter via Upstash Redis (F-05)
+ */
+async function checkCallbackRateLimit(clientIp: string): Promise<boolean> {
+  try {
+    const key = `ratelimit:callback:${clientIp}`;
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, 60);
+    }
+    return count > MAX_REQUESTS_PER_WINDOW;
+  } catch (err) {
+    console.warn('[M-Pesa Callback] Redis rate limiter unavailable, using memory fallback:', err);
+    return isFallbackRateLimited(clientIp);
+  }
 }
 
 /**
  * POST handler for Daraja callbacks
  */
 export async function POST(request: NextRequest) {
-  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : '127.0.0.1';
 
-  if (isRateLimited(clientIp)) {
+  // F-03: Enforce Safaricom IP Allowlist
+  if (!isSafaricomIpAllowed(clientIp)) {
+    console.warn(`[M-Pesa Callback Security] Blocked callback from unauthorized IP: ${clientIp}`);
+    return NextResponse.json(
+      { ResultCode: '1', ResultDesc: 'Unauthorized sender IP' },
+      { status: 403 }
+    );
+  }
+
+  // F-05: Enforce Distributed Rate Limiting
+  const rateLimited = await checkCallbackRateLimit(clientIp);
+  if (rateLimited) {
     console.warn(`[M-Pesa Callback] Rate limit exceeded from IP: ${clientIp}`);
     return NextResponse.json(
       { ResultCode: '1', ResultDesc: 'Too many requests' },
@@ -80,7 +133,7 @@ export async function POST(request: NextRequest) {
     // Extract callback data
     const callbackData = extractCallbackData(callback);
 
-    // Safe logging (sanitized: no customer phone numbers or secrets)
+    // Safe logging (sanitized: checkoutRequestId truncated, no PII)
     const sanitizedCheckoutId = callbackData.checkoutRequestId
       ? `${callbackData.checkoutRequestId.slice(0, 12)}...`
       : 'unknown';
@@ -111,6 +164,7 @@ export async function POST(request: NextRequest) {
       // Handle amount tampering or mismatch
       if (error instanceof AmountMismatchError) {
         console.error(`[M-Pesa Callback Security Alert] ${error.message}`);
+        // F-09: Generic sanitized response
         return NextResponse.json(
           { ResultCode: '1', ResultDesc: 'Amount verification failed' },
           { status: 400 }
@@ -120,6 +174,7 @@ export async function POST(request: NextRequest) {
       // Handle payment record not found
       if (error instanceof PaymentNotFoundError) {
         console.warn(`[M-Pesa Callback] Payment record not found for: ${sanitizedCheckoutId}`);
+        // F-09: Do not reflect internal IDs or messages
         return NextResponse.json(
           { ResultCode: '1', ResultDesc: 'Payment record not found' },
           { status: 404 }
@@ -142,15 +197,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof InvalidCallbackError) {
       console.warn('[M-Pesa Callback] Invalid callback validation error:', error.message);
+      // F-09: Generic sanitized response to caller
       return NextResponse.json(
-        { ResultCode: '1', ResultDesc: error.message },
+        { ResultCode: '1', ResultDesc: 'Invalid callback parameters' },
         { status: 400 }
       );
     }
 
     console.error('[M-Pesa Callback] Internal error processing callback:', error);
     
-    // Return error to Daraja (causes standard provider retry)
+    // Return generic error to Daraja (causes standard provider retry)
     return NextResponse.json(
       {
         ResultCode: '1',
@@ -170,3 +226,4 @@ export async function GET() {
     { status: 405 }
   );
 }
+

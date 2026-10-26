@@ -62,6 +62,7 @@ import {
     referredById:     uuid("referred_by_id"),
     // Marketing
     emailUnsubscribed: boolean("email_unsubscribed").default(false),
+    passwordHash:     varchar("password_hash", { length: 255 }),
     createdAt:        ts(),
   }, (t: any) => ({
     emailIdx: uniqueIndex("users_email_idx").on(t.email),
@@ -109,6 +110,21 @@ import {
     },
     (vt) => ({
       compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
+    })
+  )
+
+  export const passwordResetTokens = pgTable(
+    "password_reset_tokens",
+    {
+      id: uuid("id").primaryKey().defaultRandom(),
+      email: varchar("email", { length: 255 }).notNull(),
+      token: text("token").notNull().unique(),
+      expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+      createdAt: ts(),
+    },
+    (t: any) => ({
+      emailIdx: index("pwd_reset_email_idx").on(t.email),
+      tokenIdx: uniqueIndex("pwd_reset_token_idx").on(t.token),
     })
   )
   
@@ -275,7 +291,7 @@ priceAdjustCents:   integer("price_adjust_cents").default(0),
     statusIdx:          index("payments_status_idx").on(t.status),
     checkoutReqIdx:     uniqueIndex("payments_checkout_req_idx").on(t.checkoutRequestId),
     merchantReqIdx:     index("payments_merchant_req_idx").on(t.merchantRequestId),
-    mpesaReceiptIdx:    index("payments_mpesa_receipt_idx").on(t.mpesaReceiptNumber),
+    mpesaReceiptIdx:    uniqueIndex("payments_mpesa_receipt_idx").on(t.mpesaReceiptNumber),
     expiresIdx:         index("payments_expires_idx").on(t.expiresAt),
   }));
 

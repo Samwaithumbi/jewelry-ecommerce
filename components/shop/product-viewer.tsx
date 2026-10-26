@@ -39,14 +39,18 @@ export function ProductViewer({ images }: { images: ProductImage[] }) {
             <p className="text-xs text-muted-foreground/70 mt-1">Drag to rotate</p>
           </div>
         ) : (
-          <Image
+          <div>
+            
+           <Image
             src={activeImage.url}
             alt={activeImage.altText || "Product view"}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             priority
+            
           />
+          </div>   
         )}
         
         {/* Navigation Arrows */}
@@ -55,18 +59,20 @@ export function ProductViewer({ images }: { images: ProductImage[] }) {
             <Button
               variant="secondary"
               size="icon"
-              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full size-10 bg-white/80 backdrop-blur-sm shadow-sm hover:bg-white text-[#111827] border border-primary/10 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 rounded-full size-8 sm:size-10 bg-white/85 backdrop-blur-sm shadow-sm hover:bg-white text-[#111827] border border-primary/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
               onClick={prevImage}
+              aria-label="Previous image"
             >
-              <ChevronLeft className="size-5" />
+              <ChevronLeft className="size-4 sm:size-5" />
             </Button>
             <Button
               variant="secondary"
               size="icon"
-              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full size-10 bg-white/80 backdrop-blur-sm shadow-sm hover:bg-white text-[#111827] border border-primary/10 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 rounded-full size-8 sm:size-10 bg-white/85 backdrop-blur-sm shadow-sm hover:bg-white text-[#111827] border border-primary/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
               onClick={nextImage}
+              aria-label="Next image"
             >
-              <ChevronRight className="size-5" />
+              <ChevronRight className="size-4 sm:size-5" />
             </Button>
           </>
         )}

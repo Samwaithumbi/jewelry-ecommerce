@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import { UploadCloud, X } from "lucide-react";
 import { Button } from "./ui/button";
+import { toast } from "sonner";
 
 interface ImageUploadProps {
   value?: string;
@@ -34,9 +35,10 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
       const { publicUrl } = await res.json();
 
       onChange(publicUrl);
+      toast.success("Image uploaded successfully");
     } catch (error: any) {
       console.error(error);
-      alert(`Upload failed: ${error.message}`);
+      toast.error(`Upload failed: ${error.message}`);
     } finally {
       setUploading(false);
     }

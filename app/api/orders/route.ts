@@ -17,14 +17,20 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const isAdmin = (session.user as { role?: string } | undefined)?.role === 'admin';
+    // F-20: Authoritatively verify admin role from PostgreSQL DB, not JWT
+    let isAdmin = false;
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.id, session.user.id),
+      columns: { role: true },
+    });
+    isAdmin = dbUser?.role === 'admin';
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
@@ -48,11 +54,13 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(orders.status, status as OrderStatus));
     }
 
-    if (search) {
+    // F-13: Sanitize search input to prevent wildcards and limit length
+    if (search && search.trim().length > 0) {
+      const sanitized = search.trim().slice(0, 100).replace(/[%_\\]/g, '\\$&');
       conditions.push(
         or(
-          like(orders.orderNumber, `%${search}%`),
-          sql`${orders.shippingAddress}::text ilike ${`%${search}%`}`
+          like(orders.orderNumber, `%${sanitized}%`),
+          sql`${orders.shippingAddress}::text ilike ${`%${sanitized}%`}`
         )!
       );
     }
@@ -82,8 +90,13 @@ export async function GET(request: NextRequest) {
       ? baseQuery.where(and(...conditions))
       : baseQuery;
 
-    // Apply sorting
-    const sortColumn = sortBy === 'createdAt' ? orders.createdAt : orders.createdAt;
+    // F-23: Apply dynamic sorting based on allowed columns
+    let sortColumn: any = orders.createdAt;
+    if (sortBy === 'totalCents') {
+      sortColumn = orders.totalCents;
+    } else if (sortBy === 'status') {
+      sortColumn = orders.status;
+    }
     const sortedQuery = finalQuery.orderBy(sortOrder === 'desc' ? desc(sortColumn) : sortColumn);
 
     // Apply pagination
@@ -122,7 +135,20 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || (session.user as { role?: string })?.role !== 'admin') {
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // F-20: Authoritative DB check for admin access
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.id, session.user.id),
+      columns: { role: true },
+    });
+
+    if (!dbUser || dbUser.role !== 'admin') {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Admin access required' },
         { status: 403 }
