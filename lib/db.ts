@@ -26,17 +26,18 @@ declare global {
 
 const pool =
   globalThis.__neonPool ??
-  new Pool({
-    connectionString,
-    max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
-  });
-
-// Handle idle pool client errors gracefully
-pool.on("error", (err: Error) => {
-  console.warn("Unexpected Neon pool error on idle client:", err.message);
-});
+  (() => {
+    const p = new Pool({
+      connectionString,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    });
+    p.on("error", (err: Error) => {
+      console.warn("Unexpected Neon pool error on idle client:", err.message);
+    });
+    return p;
+  })();
 
 export const db: AppDb =
   globalThis.__drizzleDb ??

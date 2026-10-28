@@ -135,7 +135,7 @@ export class UnauthorizedPaymentError extends MpesaError {
  * Duplicate callback error (for logging, not exposed to users)
  */
 export class DuplicateCallbackError extends MpesaError {
-  constructor(checkoutRequestId: string) {
+  constructor(checkoutRequestId: string, public receiptNumber?: string) {
     super(
       `Duplicate callback for checkout request: ${checkoutRequestId}`,
       'DUPLICATE_CALLBACK',

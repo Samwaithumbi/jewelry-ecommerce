@@ -4,18 +4,14 @@
 import {
     pgTable, pgEnum, uuid, varchar, text, integer,
     smallint, boolean, decimal, date, timestamp,
-    jsonb, customType, index, uniqueIndex, primaryKey
+    jsonb, customType, index, uniqueIndex, primaryKey,
+    vector
   } from "drizzle-orm/pg-core";
   
   // ── Enable pgvector ──────────────────────────────────────────────────────────
   // Run in Neon SQL editor FIRST:
   // CREATE EXTENSION IF NOT EXISTS vector;
   // CREATE EXTENSION IF NOT EXISTS pg_trgm;
-  
-  const vector = (name: string, dim: number) =>
-    customType<{ data: number[] }>({
-      dataType() { return `vector(${dim})`; },
-    })(name);
   
   // ── Enums ────────────────────────────────────────────────────────────────────
   export const roleEnum         = pgEnum("role", ["customer","admin"]);
@@ -150,14 +146,15 @@ import {
     reviewCount:   integer("review_count").default(0),
     viewCount:     integer("view_count").default(0),
     // AI embedding — requires pgvector extension
-    embedding:     vector("embedding", 1024),
+    embedding:     vector("embedding", { dimensions: 1024 }),
     vendorId:      uuid("vendor_id"),
     createdAt:     ts(),
     updatedAt:     timestamp("updated_at", { withTimezone: true }),
   }, (t: any) => ({
-    slugIdx:     uniqueIndex("products_slug_idx").on(t.slug),
-    categoryIdx: index("products_category_idx").on(t.category),
-    activeIdx:   index("products_active_idx").on(t.active),
+    slugIdx:         uniqueIndex("products_slug_idx").on(t.slug),
+    categoryIdx:     index("products_category_idx").on(t.category),
+    activeIdx:       index("products_active_idx").on(t.active),
+    embeddingIdx:    index("products_embedding_cosine_idx").using("hnsw", t.embedding.op("vector_cosine_ops")),
   }));
   
   export const productVariants = pgTable("product_variants", {

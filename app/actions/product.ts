@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { ProductFormValues } from "@/lib/validations";
 import { requireAdminSession } from "@/lib/auth-guard";
+import { embedAndSaveProduct } from "@/lib/products/vectorstorage";
 
 export async function createProduct(data: ProductFormValues & {
   sku?: string;
@@ -81,6 +82,29 @@ export async function createProduct(data: ProductFormValues & {
     }
   }
 
+  // 6. Generate vector embedding asynchronously (non-fatal if Voyage AI is temporarily unavailable)
+  try {
+    await embedAndSaveProduct({
+      id: productId,
+      name: data.name,
+      description: data.description,
+      category: data.category,
+      metalType: data.metalType,
+      metalPurity: data.metalPurity,
+      basePriceCents: data.basePriceCents,
+      weightGrams: data.weightGrams,
+      variants: data.sku
+        ? [
+            {
+              size: data.size,
+            },
+          ]
+        : [],
+    });
+  } catch (embedError) {
+    console.warn(`[createProduct] Non-fatal: embedding generation failed for ${productId}:`, embedError);
+  }
+
   revalidatePath("/admin-dashboard/products");
   revalidatePath("/admin-dashboard/inventory");
   return result[0];
@@ -108,6 +132,22 @@ export async function updateProduct(id: string, data: ProductFormValues) {
       position: 1,
       isPrimary: true,
     });
+  }
+
+  // Update vector embedding with modified product fields
+  try {
+    await embedAndSaveProduct({
+      id,
+      name: data.name,
+      description: data.description,
+      category: data.category,
+      metalType: data.metalType,
+      metalPurity: data.metalPurity,
+      basePriceCents: data.basePriceCents,
+      weightGrams: data.weightGrams,
+    });
+  } catch (embedError) {
+    console.warn(`[updateProduct] Non-fatal: embedding update failed for ${id}:`, embedError);
   }
 
   revalidatePath("/admin-dashboard/products");

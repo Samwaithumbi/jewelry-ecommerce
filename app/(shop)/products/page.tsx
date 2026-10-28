@@ -1,8 +1,10 @@
 import { Suspense } from "react"
 import type { Metadata } from "next"
 import { eq, and, desc, asc, lte, inArray, count, sql } from "drizzle-orm"
+import { cosineDistance } from "drizzle-orm/sql/functions/vector"
 import { db } from "@/lib/db"
 import { products, productImages, productVariants } from "@/drizzle/src/db/schema"
+import { embedText } from "@/lib/embeddings/embeddings"
 
 import { ProductCard } from "@/components/shop/product-card"
 import { ProductFilters, type FilterCounts } from "@/components/shop/product-filters"
@@ -135,6 +137,17 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
       ? searchParams.search.trim()
       : undefined
 
+  // Generate query embedding for semantic search if search query is provided
+  let queryEmbedding: number[] | null = null
+  if (searchQuery) {
+    try {
+      queryEmbedding = await embedText(searchQuery, { inputType: "query" })
+    } catch {
+      // Non-fatal: fallback smoothly to keyword search if embedding API is unreachable
+      queryEmbedding = null
+    }
+  }
+
   const validSorts = ["popular", "newest", "price-asc", "price-desc"] as const
   type SortKey = (typeof validSorts)[number]
   const sort: SortKey =
@@ -155,9 +168,16 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
   ]
 
   if (searchQuery) {
-    conditions.push(
-      sql`(${products.name} ILIKE ${`%${searchQuery}%`} OR ${products.description} ILIKE ${`%${searchQuery}%`})` as unknown as Condition
-    )
+    if (queryEmbedding) {
+      // Hybrid search: Match keyword in title/desc OR cosine distance <= 0.55 (similarity >= 0.45)
+      conditions.push(
+        sql`(${products.name} ILIKE ${`%${searchQuery}%`} OR ${products.description} ILIKE ${`%${searchQuery}%`} OR (${products.embedding} IS NOT NULL AND (${cosineDistance(products.embedding, queryEmbedding)}) <= 0.55))` as unknown as Condition
+      )
+    } else {
+      conditions.push(
+        sql`(${products.name} ILIKE ${`%${searchQuery}%`} OR ${products.description} ILIKE ${`%${searchQuery}%`})` as unknown as Condition
+      )
+    }
   }
 
   if (category) {
@@ -227,6 +247,7 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
         if (sort === "newest") q = q.orderBy(desc(products.createdAt))
         else if (sort === "price-asc") q = q.orderBy(asc(products.basePriceCents))
         else if (sort === "price-desc") q = q.orderBy(desc(products.basePriceCents))
+        else if (queryEmbedding) q = q.orderBy(cosineDistance(products.embedding, queryEmbedding))
         else q = q.orderBy(desc(products.viewCount))
         return q.where(whereClause).limit(LIMIT).offset(offset)
       })(),

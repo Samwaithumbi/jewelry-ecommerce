@@ -29,6 +29,8 @@ export const OPTIONAL_INTEGRATION_VARS = [
   'R2_PUBLIC_URL',
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
+  'VOYAGE_API_KEY',
+  'VOYAGE_MODEL',
 ] as const;
 
 /**
