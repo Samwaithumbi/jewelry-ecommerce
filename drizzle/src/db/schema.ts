@@ -150,7 +150,7 @@ import {
     reviewCount:   integer("review_count").default(0),
     viewCount:     integer("view_count").default(0),
     // AI embedding — requires pgvector extension
-    embedding:     vector("embedding", 1536),
+    embedding:     vector("embedding", 1024),
     vendorId:      uuid("vendor_id"),
     createdAt:     ts(),
     updatedAt:     timestamp("updated_at", { withTimezone: true }),
