@@ -4,8 +4,8 @@ import type { NextConfig } from "next";
 // Force Next.js dev server to reload config and reset Turbopack compilation state
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
-    "0kk5xcrl-3000.uks1.devtunnels.ms",
-    "192.168.137.1",
+    "localhost:3000",
+    "127.0.0.1:3000",
   ],
 
   images: {
@@ -24,8 +24,9 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       allowedOrigins: [
-        "0kk5xcrl-3000.uks1.devtunnels.ms",
-        "localhost",
+        "localhost:3000",
+        "127.0.0.1:3000",
+        ...(process.env.NEXT_PUBLIC_APP_URL ? [new URL(process.env.NEXT_PUBLIC_APP_URL).host] : []),
       ],
     },
   },

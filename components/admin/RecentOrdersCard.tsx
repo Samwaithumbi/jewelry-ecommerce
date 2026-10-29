@@ -3,6 +3,7 @@
 import { MoreHorizontal, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { statusStyle } from "./constants"
+import { Skeleton } from "@/components/ui/skeleton"
 import type { OrderDisplay } from "@/app/actions/admin/get-orders"
 
 interface RecentOrdersCardProps {
@@ -28,9 +29,35 @@ export function RecentOrdersCard({ orders, isLoading }: RecentOrdersCardProps) {
       {/* Table */}
       <div className="overflow-x-auto">
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground text-sm">
-            Loading orders...
-          </div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-y border-border bg-muted/30">
+                {["Order", "Customer", "Item", "Total", "Status", ""].map((h) => (
+                  <th
+                    key={h}
+                    className="px-5 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <tr
+                  key={i}
+                  className={`border-b border-border ${i % 2 === 0 ? "" : "bg-muted/5"}`}
+                >
+                  <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-16 bg-muted/80" /></td>
+                  <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-24 bg-muted/80" /></td>
+                  <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-36 bg-muted/80" /></td>
+                  <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-16 bg-muted/80" /></td>
+                  <td className="px-5 py-3.5"><Skeleton className="h-5 w-20 rounded-full bg-muted/80" /></td>
+                  <td className="px-5 py-3.5"><Skeleton className="h-4 w-4 rounded bg-muted/80" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : orders.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground text-sm">
             No recent orders found
@@ -57,7 +84,7 @@ export function RecentOrdersCard({ orders, isLoading }: RecentOrdersCardProps) {
                     i % 2 === 0 ? "" : "bg-muted/5"
                   }`}
                 >
-                  <td className="px-5 py-3 font-mono text-muted-foreground">#{order.displayId}</td>
+                  <td className="px-5 py-3 font-mono text-muted-foreground">{order.displayId.startsWith('#') ? order.displayId : `#${order.displayId}`}</td>
                   <td className="px-5 py-3 font-medium whitespace-nowrap">{order.customer}</td>
                   <td className="px-5 py-3 text-muted-foreground">{order.item}</td>
                   <td className="px-5 py-3 font-semibold whitespace-nowrap">{order.total}</td>

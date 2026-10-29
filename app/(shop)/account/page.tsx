@@ -67,7 +67,7 @@ export default async function AccountOverview() {
             Welcome back, {session.user.name?.split(' ')[0] || 'Friend'}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {tierLabel} &bull; Member since {memberSince}
+            Member since {memberSince}
           </p>
         </div>
         <div className="flex items-center gap-3">

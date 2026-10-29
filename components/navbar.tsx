@@ -104,20 +104,7 @@ export function  Navbar({user}:NavbarProps) {
             </div>
           </div>
 
-          <Link
-            href="/custom-jewelry"
-            className="text-sm font-medium text-[#111827] transition-colors hover:text-[#B88E2F]"
-          >
-            Custom Jewelry
-          </Link>
-
-          <Link
-            href="/ai-stylist"
-            className="flex items-center text-sm font-medium text-[#111827] transition-colors hover:text-[#B88E2F]"
-          >
-            AI Stylist
-            <Sparkle className="ml-1 h-4 w-4 text-[#B88E2F]" />
-          </Link>
+          
         </nav>
 
         {/* Global Live SearchBar - Desktop: Always Open */}

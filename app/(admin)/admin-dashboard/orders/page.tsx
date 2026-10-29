@@ -166,7 +166,7 @@ export default function OrdersPage() {
           </div>
           
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v || 'all')}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[80px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>

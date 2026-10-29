@@ -3,12 +3,19 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import * as schema from '@/drizzle/src/db/schema';
 import * as inventorySchema from '@/drizzle/src/db/inventory-schema';
 
-if (!process.env.DATABASE_URL) {
+const isTestEnv =
+  process.env.NODE_ENV === 'test' ||
+  Boolean(process.env.VITEST) ||
+  process.argv.some(arg => arg.includes('test')) ||
+  process.execArgv.some(arg => arg.includes('test'));
+const rawDbUrl = process.env.DATABASE_URL || (isTestEnv ? 'postgres://mock:mock@localhost:5432/mock' : undefined);
+
+if (!rawDbUrl) {
   throw new Error("DATABASE_URL is not set");
 }
 
 // Sanitize DATABASE_URL: channel_binding=require is not supported by Neon WebSocket proxy / PgBouncer pooler
-const connectionString = (process.env.DATABASE_URL || "").replace(
+const connectionString = rawDbUrl.replace(
   /([?&])channel_binding=[^&]+(&|$)/,
   "$1"
 ).replace(/[?&]$/, "");

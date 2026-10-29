@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, Plus, Search, RefreshCw } from "lucide-react"
+import {  Plus, Search, RefreshCw } from "lucide-react"
 import Link from "next/link"
 
 interface DashboardHeaderProps {
@@ -52,15 +52,7 @@ export function DashboardHeader({ lastUpdated, onRefresh, isRefreshing }: Dashbo
           />
         </div>
 
-        {/* Bell */}
-        <button
-          id="dashboard-notifications"
-          className="relative flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background hover:bg-muted transition"
-        >
-          <Bell className="h-4 w-4 text-muted-foreground" />
-          <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-[#B8860B]" />
-        </button>
-
+       
         {/* CTA */}
         <Link href="/admin-dashboard/products/new">
           <button

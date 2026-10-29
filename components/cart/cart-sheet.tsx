@@ -96,7 +96,8 @@ export function CartSheet() {
     return (
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <CartButton onClick={() => setIsOpen(true)} />
-            <SheetContent className="flex w-[100px] flex-col  sm:max-w-[500px]">
+            <SheetContent side="right"
+  className="data-[side=right]:w-3/4 data-[side=right]:sm:w-[420px]">
                 <SheetHeader>
                     <SheetTitle>Your Cart ({totalItems})</SheetTitle>
                 </SheetHeader>

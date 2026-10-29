@@ -10,6 +10,8 @@
 import { z } from 'zod';
 import { getPaymentStatusForClient } from '@/lib/mpesa/db';
 import { PaymentNotFoundError } from '@/lib/mpesa/errors';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 /**
  * Input validation schema
@@ -25,10 +27,9 @@ export async function checkPaymentStatus(paymentId: string) {
   try {
     const validatedData = checkPaymentStatusSchema.parse({ paymentId });
 
-    // Note: In a real implementation, you'd get userId from session
-    // const session = await getServerSession(authOptions);
-    // const userId = session?.user?.id;
-    const userId = undefined; // TODO: Implement session-based auth
+    // Retrieve authenticated user from session
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
 
     const paymentStatus = await getPaymentStatusForClient(
       validatedData.paymentId,

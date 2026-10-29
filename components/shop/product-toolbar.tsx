@@ -40,18 +40,10 @@ export function ProductToolbar({ totalCount, filterCounts }: ProductToolbarProps
 
   return (
     <div className="flex w-full items-center justify-between gap-3 sm:gap-4 py-3 mb-6 bg-transparent z-20 flex-wrap sm:flex-nowrap">
-      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground font-medium">
-        <LayoutGrid className="size-4 text-[#B88E2F]" />
-        <span>
-          {typeof totalCount === "number"
-            ? `${totalCount} ${totalCount === 1 ? "piece" : "pieces"} found`
-            : "Filters applied"}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+    
+      <div className="flex items-center gap-2 sm:gap-3 ">
         {/* Mobile Filters Sheet Trigger */}
-        <div className="lg:hidden">
+        <div className="lg:hidden ml-0">
           <Sheet>
             <SheetTrigger
                 render={
@@ -66,7 +58,7 @@ export function ProductToolbar({ totalCount, filterCounts }: ProductToolbarProps
                   </Button>
                 }
               />
-            <SheetContent side="left" className="w-full sm:w-[380px] p-0 flex flex-col">
+            <SheetContent side="left" className="data-[side=left]:w-3/4 data-[side=left]:sm:w-[450px]">
               <SheetHeader className="p-4 border-b border-primary/10">
                 <SheetTitle className="text-base font-serif font-semibold text-[#111827] flex items-center gap-2">
                   <SlidersHorizontal className="size-4 text-[#B88E2F]" />
@@ -156,21 +148,7 @@ export function ShopHeader({ totalCount = 0, currentCategory, searchQuery }: Sho
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
-        {/* Action Buttons */}
-        <a href="/visual-search">
-          <Button type="button" variant="outline" className="rounded-full gap-2 bg-[#FCFBF9] border-[#B88E2F]/30 text-[#B88E2F] hover:bg-[#B88E2F]/10 hover:text-[#B88E2F] h-11 px-5 shadow-sm transition-all duration-200">
-            <ScanLine className="size-4" />
-            <span className="font-semibold text-sm">Visual Search</span>
-          </Button>
-        </a>
-        <a href="/ai-stylist">
-          <Button type="button" className="rounded-full gap-2 bg-[#111827] text-white hover:bg-[#111827]/90 h-11 px-5 shadow-sm transition-all duration-200">
-            <Sparkles className="size-4 text-[#F59E0B]" />
-            <span className="font-semibold text-sm">AI Stylist</span>
-          </Button>
-        </a>
-      </div>
+
     </div>
   )
 }

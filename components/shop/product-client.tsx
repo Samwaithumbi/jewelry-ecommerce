@@ -235,7 +235,7 @@ export function ProductClient({
               ) : currentVariant && currentVariant.stockQty < 5 ? (
                 <span className="text-[#F59E0B]">Only {currentVariant.stockQty} left in stock</span>
               ) : (
-                <span className="text-green-600">In Stock — Ships in 3-5 business days</span>
+                <span className="text-green-600">In Stock — You can order yours today</span>
               )}
             </div>
           </div>

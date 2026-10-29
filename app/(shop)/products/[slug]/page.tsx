@@ -211,11 +211,6 @@ export default async function ProductPage({ params }: { params: Params }) {
                 {product.name}
               </h1>
               
-              {product.shortDesc && (
-                <p className="text-lg text-muted-foreground mb-6">
-                  {product.shortDesc}
-                </p>
-              )}
               
               {/* Product Client handles Pricing, Variants, and Add to Cart */}
               <div className="relative">
@@ -239,7 +234,7 @@ export default async function ProductPage({ params }: { params: Params }) {
          
             {/* Description Details */}
             {product.description && (
-              <div className="mt-8 pt-8 border-t border-primary/10">
+              <div className="mt-5 pt-5 border-t border-primary/10">
                 <h3 className="text-lg font-serif font-semibold text-[#111827] mb-4">Product Details</h3>
                 <div className="prose prose-sm text-muted-foreground">
                   <p>{product.description}</p>
@@ -251,7 +246,7 @@ export default async function ProductPage({ params }: { params: Params }) {
 
         {/* Related Products Section */}
         {relatedWithImages.length > 0 && (
-          <div className="mt-24 pt-16 border-t border-primary/10">
+          <div className="mt-5 pt-5 border-t border-primary/10">
             <div className="flex items-end justify-between mb-8">
               <h2 className="text-2xl sm:text-3xl font-serif font-semibold text-[#111827]">You May Also Love</h2>
               <Link href="/products" className="hidden sm:flex items-center gap-2 text-sm font-medium text-[#B88E2F] hover:text-[#F59E0B] transition-colors">

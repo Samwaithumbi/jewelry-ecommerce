@@ -1,8 +1,8 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { orders, orderItems, products } from "@/drizzle/src/db/schema"
-import { eq, inArray, desc, sql } from "drizzle-orm"
+import { orders, orderItems, products, users } from "@/drizzle/src/db/schema"
+import { eq, inArray, desc } from "drizzle-orm"
 import { formatCurrency } from "@/lib/dashboard-utils"
 import { requireAdminSession } from "@/lib/auth-guard"
 
@@ -19,16 +19,17 @@ export interface OrderDisplay {
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const VALID_ORDER_STATUSES = ['confirmed', 'processing', 'shipped', 'delivered'] as const
-
 /**
  * Status mapping for UI display
  */
 const STATUS_MAP: Record<string, string> = {
-  confirmed: 'Processing',
+  pending: 'Pending',
+  confirmed: 'Confirmed',
   processing: 'Processing',
   shipped: 'Shipped',
-  delivered: 'Fulfilled',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+  refunded: 'Refunded',
 }
 
 // ── Get Recent Orders ───────────────────────────────────────────────────────
@@ -44,8 +45,7 @@ export async function getOrderItems(
 ): Promise<OrderDisplay[]> {
   await requireAdminSession()
   try {
-
-    // Get recent orders with valid statuses
+    // Get all recent orders ordered by creation date descending
     const recentOrders = await db
       .select({
         id: orders.id,
@@ -57,9 +57,12 @@ export async function getOrderItems(
         status: orders.status,
         shippingAddress: orders.shippingAddress,
         createdAt: orders.createdAt,
+        userId: orders.userId,
+        userName: users.name,
+        userEmail: users.email,
       })
       .from(orders)
-      .where(inArray(orders.status, VALID_ORDER_STATUSES))
+      .leftJoin(users, eq(orders.userId, users.id))
       .orderBy(desc(orders.createdAt))
       .limit(limit)
       .offset(offset)
@@ -80,14 +83,16 @@ export async function getOrderItems(
       .where(inArray(orderItems.orderId, orderIds))
 
     // Get product names
-    const productIds = [...new Set(items.map((i) => i.productId))]
-    const productsData = await db
-      .select({
-        id: products.id,
-        name: products.name,
-      })
-      .from(products)
-      .where(inArray(products.id, productIds))
+    const productIds = [...new Set(items.map((i) => i.productId))].filter(Boolean)
+    const productsData = productIds.length > 0
+      ? await db
+          .select({
+            id: products.id,
+            name: products.name,
+          })
+          .from(products)
+          .where(inArray(products.id, productIds))
+      : []
 
     // Create maps for quick lookup
     const productMap = new Map(productsData.map((p) => [p.id, p.name]))
@@ -100,23 +105,30 @@ export async function getOrderItems(
 
     // Transform to display format
     const result: OrderDisplay[] = recentOrders.map((order) => {
-      // Extract customer name from shipping address
+      // Extract customer name from user account or shipping address
       const shippingAddress = order.shippingAddress as any
-      const customerName = shippingAddress?.name || 'Guest Customer'
+      const customerName =
+        order.userName ||
+        shippingAddress?.fullName ||
+        shippingAddress?.name ||
+        order.userEmail ||
+        'Guest Customer'
 
       // Get first product from order
       const orderItemsList = orderItemsMap.get(order.id) || []
       const firstItem = orderItemsList[0]
-      const productName = firstItem ? productMap.get(firstItem.productId) || 'Unknown Product' : 'No items'
+      const productName = firstItem
+        ? productMap.get(firstItem.productId) || 'Jewelry Piece'
+        : 'Order item'
       
       // Add quantity if more than 1, and show additional items count
-      const itemCount = orderItemsList.reduce((sum, item) => sum + item.qty, 0)
+      const itemCount = orderItemsList.reduce((sum, item) => sum + (item.qty || 1), 0)
       const itemDisplay = itemCount > 1 
         ? `${productName} +${itemCount - 1} more`
         : productName
 
       // Map status to display format
-      const displayStatus = STATUS_MAP[order.status] || order.status
+      const displayStatus = STATUS_MAP[order.status] || order.status.charAt(0).toUpperCase() + order.status.slice(1)
 
       // Calculate total from components if totalCents is 0 (defensive measure)
       const displayTotal = order.totalCents === 0

@@ -88,8 +88,10 @@ async function checkCallbackRateLimit(clientIp: string): Promise<boolean> {
  * POST handler for Daraja callbacks
  */
 export async function POST(request: NextRequest) {
+  const realIp = request.headers.get('x-real-ip');
   const forwardedFor = request.headers.get('x-forwarded-for');
-  const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : '127.0.0.1';
+  const forwardedHops = forwardedFor ? forwardedFor.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const clientIp = realIp || (forwardedHops.length > 0 ? forwardedHops[forwardedHops.length - 1] : '127.0.0.1');
 
   // F-03: Enforce Safaricom IP Allowlist
   if (!isSafaricomIpAllowed(clientIp)) {

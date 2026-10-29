@@ -7,6 +7,12 @@ import { getCart } from "./get-cart";
 import { revalidatePath } from "next/cache";
 
 export async function updateQty(productId: string, variantId: string | undefined, qty: number) {
+    const rawQty = Number(qty);
+    if (!Number.isInteger(rawQty)) {
+        throw new Error("Quantity must be a valid integer");
+    }
+    const validatedQty = Math.min(100, rawQty);
+
     const sessionId = await getCartSessionId();
     const cart = await getCart(sessionId);
 
@@ -18,10 +24,10 @@ export async function updateQty(productId: string, variantId: string | undefined
     );
 
     if (existingItemIndex > -1) {
-        if (qty <= 0) {
+        if (validatedQty <= 0) {
             cart.items = cart.items.filter((_, index) => index !== existingItemIndex);
         } else {
-            cart.items[existingItemIndex].qty = qty;
+            cart.items[existingItemIndex].qty = validatedQty;
         }
     }
 

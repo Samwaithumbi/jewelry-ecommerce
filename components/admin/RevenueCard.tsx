@@ -11,6 +11,7 @@ import {
 } from "recharts"
 import { Filter, Download } from "lucide-react"
 import { fmt } from "./constants"
+import { Skeleton } from "@/components/ui/skeleton"
 import type { RevenueDataPoint } from "@/app/actions/admin/get-dashboard-data"
 
 interface RevenueCardProps {
@@ -36,9 +37,27 @@ export function RevenueCard({ data, isLoading }: RevenueCardProps) {
         </div>
       </div>
 
-      {isLoading || data.length === 0 ? (
+      {isLoading ? (
+        <div className="h-[180px] w-full flex flex-col justify-end pt-3 pb-1">
+          <div className="flex items-end justify-between gap-2 h-32 px-1">
+            {[35, 55, 45, 75, 50, 85, 65, 80, 60, 92, 70, 88].map((h, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+                <Skeleton
+                  className="w-full rounded-t-sm bg-muted/80"
+                  style={{ height: `${h}%` }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between px-1 pt-2 border-t border-border/40 mt-1">
+            {["Jan", "Mar", "May", "Jul", "Sep", "Nov"].map((m) => (
+              <Skeleton key={m} className="h-2.5 w-6 rounded bg-muted/60" />
+            ))}
+          </div>
+        </div>
+      ) : data.length === 0 ? (
         <div className="h-[180px] flex items-center justify-center text-muted-foreground text-sm">
-          {isLoading ? 'Loading revenue data...' : 'No revenue data available'}
+          No revenue data available
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={180}>

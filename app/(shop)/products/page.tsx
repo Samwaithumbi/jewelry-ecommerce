@@ -395,7 +395,7 @@ async function ProductsContent({ searchParams }: { searchParams: SearchParams })
       <div className="mx-auto max-w-7xl px-4 md:px-8">
         <ShopHeader totalCount={totalProducts} currentCategory={category} searchQuery={searchQuery} />
        
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
+        <div className="flex flex-col lg:flex-row gap-8 ">
           <div className="hidden lg:block sticky top-8 z-10 w-full max-w-260px">
             <ProductFilters counts={filterCounts} />
           </div>

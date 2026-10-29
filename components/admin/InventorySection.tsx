@@ -2,6 +2,7 @@
 
 import { ExternalLink } from "lucide-react"
 import Link from "next/link"
+import { Skeleton } from "@/components/ui/skeleton"
 import type { InventoryItemDisplay } from "@/app/actions/admin/get-dashboard-data"
 
 function InventoryCard({
@@ -68,8 +69,21 @@ export function InventorySection({ items, isLoading }: InventorySectionProps) {
       </div>
 
       {isLoading ? (
-        <div className="text-center text-muted-foreground text-sm py-8">
-          Loading inventory...
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
+              <div className="flex items-start justify-between">
+                <Skeleton className="h-2.5 w-14 bg-muted/80" />
+                <Skeleton className="h-3.5 w-8 rounded-full bg-muted/60" />
+              </div>
+              <Skeleton className="h-4 w-3/4 bg-muted/80" />
+              <Skeleton className="h-1.5 w-full rounded-full bg-muted/70" />
+              <div className="flex items-baseline justify-between pt-1">
+                <Skeleton className="h-6 w-10 bg-muted/90" />
+                <Skeleton className="h-2.5 w-16 bg-muted/60" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : items.length === 0 ? (
         <div className="text-center text-muted-foreground text-sm py-8">

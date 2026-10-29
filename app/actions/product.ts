@@ -134,6 +134,66 @@ export async function updateProduct(id: string, data: ProductFormValues) {
     });
   }
 
+  // Update or insert variant & inventory
+  if (data.sku) {
+    const existingVariant = await db.query.productVariants.findFirst({
+      where: eq(productVariants.productId, id),
+    });
+
+    let variantId = existingVariant?.id;
+
+    if (existingVariant) {
+      await db.update(productVariants).set({
+        sku: data.sku,
+        size: data.size || null,
+        priceAdjustCents: data.priceAdjustCents || 0,
+      }).where(eq(productVariants.id, existingVariant.id));
+    } else {
+      const [newVariant] = await db.insert(productVariants).values({
+        productId: id,
+        sku: data.sku,
+        size: data.size || null,
+        priceAdjustCents: data.priceAdjustCents || 0,
+        active: true,
+      }).returning();
+      variantId = newVariant.id;
+    }
+
+    if (variantId && data.initialStock !== undefined) {
+      const locationCode = data.location || "MAIN";
+      const inventoryLocation = await db.query.inventoryLocations.findFirst({
+        where: eq(inventoryLocations.code, locationCode),
+      });
+
+      if (inventoryLocation) {
+        const { and } = await import("drizzle-orm");
+        const existingLevel = await db.query.inventoryLevels.findFirst({
+          where: and(
+            eq(inventoryLevels.variantId, variantId),
+            eq(inventoryLevels.locationId, inventoryLocation.id)
+          ),
+        });
+
+        if (existingLevel) {
+          await db.update(inventoryLevels).set({
+            onHand: data.initialStock,
+            reorderPoint: data.reorderPoint ?? 3,
+            updatedAt: new Date(),
+          }).where(eq(inventoryLevels.id, existingLevel.id));
+        } else {
+          await db.insert(inventoryLevels).values({
+            variantId,
+            locationId: inventoryLocation.id,
+            onHand: data.initialStock,
+            reserved: 0,
+            reorderPoint: data.reorderPoint ?? 3,
+            reorderQuantity: 0,
+          });
+        }
+      }
+    }
+  }
+
   // Update vector embedding with modified product fields
   try {
     await embedAndSaveProduct({
@@ -151,6 +211,7 @@ export async function updateProduct(id: string, data: ProductFormValues) {
   }
 
   revalidatePath("/admin-dashboard/products");
+  revalidatePath("/admin-dashboard/inventory");
   revalidatePath(`/admin-dashboard/products/${id}/edit`);
 }
 

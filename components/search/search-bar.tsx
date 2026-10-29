@@ -148,7 +148,7 @@ export function SearchBar({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ searchLogId, productId }),
           keepalive: true,
-        }).catch(() => {});
+        }).catch(() => { });
       } catch {
         // non-fatal
       }
@@ -240,28 +240,10 @@ export function SearchBar({
           aria-expanded={isOpen}
           aria-autocomplete="list"
           aria-controls="search-results-dropdown"
-          className="w-full h-10 pl-10 pr-10 text-sm bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 focus:border-[#B88E2F] rounded-full outline-hidden transition-all duration-200 shadow-2xs focus:shadow-md focus:ring-1 focus:ring-[#B88E2F]/30"
+          className="w-full h-10 pl-10 pr-18 text-sm bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 focus:border-[#B88E2F] rounded-full outline-hidden transition-all duration-200 shadow-2xs focus:shadow-md focus:ring-1 focus:ring-[#B88E2F]/30"
         />
 
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-          {(isLoading || isNavigating) && <Loader2 className="w-4 h-4 animate-spin text-[#B88E2F]" />}
-          {query && !isLoading && !isNavigating && (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery("");
-                setResults([]);
-                setIsOpen(false);
-                setSelectedIndex(-1);
-                inputRef.current?.focus();
-              }}
-              aria-label="Clear search"
-              className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+        
       </form>
 
       {/* Live Dropdown: Skeletons while loading, or Top 5 Results */}
@@ -296,9 +278,8 @@ export function SearchBar({
                       aria-selected={isSelected}
                       onMouseEnter={() => setSelectedIndex(idx)}
                       onClick={() => handleResultClick(product.id, product.slug)}
-                      className={`w-full p-3 flex items-center gap-3.5 text-left transition-colors group cursor-pointer ${
-                        isSelected ? "bg-amber-50/80" : "hover:bg-amber-50/40"
-                      }`}
+                      className={`w-full p-3 flex items-center gap-3.5 text-left transition-colors group cursor-pointer ${isSelected ? "bg-amber-50/80" : "hover:bg-amber-50/40"
+                        }`}
                     >
                       <div className="relative w-12 h-12 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-100">
                         {product.imageUrl ? (
@@ -315,9 +296,8 @@ export function SearchBar({
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate transition-colors ${
-                          isSelected ? "text-[#B88E2F]" : "text-slate-900 group-hover:text-[#B88E2F]"
-                        }`}>
+                        <p className={`text-sm font-medium truncate transition-colors ${isSelected ? "text-[#B88E2F]" : "text-slate-900 group-hover:text-[#B88E2F]"
+                          }`}>
                           {product.name}
                         </p>
                         <p className="text-xs text-slate-500 capitalize">
@@ -329,7 +309,7 @@ export function SearchBar({
                         <span className="text-sm font-semibold text-slate-900">
                           {formattedPrice}
                         </span>
-                        
+
                       </div>
                     </button>
                   );

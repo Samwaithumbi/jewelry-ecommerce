@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       if (ipCount === 1) {
         await redis.expire(ipRateKey, 60);
       }
-      if (ipCount > 5) {
+      if (ipCount > 7) {
         throw new PaymentRateLimitError('Too many payment initiation requests from this IP. Please wait a minute.');
       }
     } catch (ipRateErr) {

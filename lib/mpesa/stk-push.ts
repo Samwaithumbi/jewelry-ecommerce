@@ -1,6 +1,6 @@
 
 
-import { getMpesaConfig, getStkPushUrl } from './config';
+import { getMpesaConfig, getStkPushUrl, getStkPushQueryUrl } from './config';
 import { getAccessToken } from './auth';
 import { normalizePhoneNumber } from './phone';
 import {
@@ -182,7 +182,7 @@ export async function queryStkPushStatus(checkoutRequestId: string): Promise<any
       CheckoutRequestID: checkoutRequestId,
     };
 
-    const response = await fetch(getStkPushUrl().replace('processrequest', 'query'), {
+    const response = await fetch(getStkPushQueryUrl(), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

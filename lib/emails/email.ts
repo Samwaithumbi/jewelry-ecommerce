@@ -47,7 +47,10 @@ function resolveRecipient(customerEmail: string, originalSubject: string): { to:
   if (cleanCustomerEmail) {
     return { to: [cleanCustomerEmail], subject: originalSubject };
   }
-  return { to: ['samuelwaithumbi6@gmail.com'], subject: `[DEV Fallback] ${originalSubject}` };
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(`Transactional email failed: recipient address is required for subject "${originalSubject}"`);
+  }
+  throw new Error(`Transactional email failed: no recipient email provided`);
 }
 
 interface OrderConfirmedData {

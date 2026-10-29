@@ -2,10 +2,21 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { products } from "@/drizzle/src/db/schema";
 import { desc, sql } from "drizzle-orm";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not Found" }, { status: 404 });
+  }
+
+  const session = await getServerSession(authOptions);
+  if (!session?.user || (session.user as { role?: string })?.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+  }
+
   const diagnostics: Record<string, any> = {
     voyageApiKeyConfigured: Boolean(process.env.VOYAGE_API_KEY),
     voyageModelEnv: process.env.VOYAGE_MODEL || "voyage-4-lite",

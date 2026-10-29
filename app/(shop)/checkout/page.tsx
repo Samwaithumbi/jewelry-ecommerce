@@ -54,7 +54,7 @@ export default function CheckoutPage() {
     shipAsGift: false,
   });
 
-  const GIFT_WRAP_COST = 100;
+  const GIFT_WRAP_COST = 10000;
 
   useEffect(() => {
     const fetchCart = async () => {
@@ -174,7 +174,6 @@ export default function CheckoutPage() {
 
   // Handle payment failure
   const handlePaymentFailure = (error: string) => {
-    console.error('Payment failed:', error);
     router.push(`/checkout/failure?error=${encodeURIComponent(error)}${orderId ? `&orderId=${orderId}` : ''}`);
   };
 

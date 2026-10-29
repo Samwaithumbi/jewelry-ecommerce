@@ -76,8 +76,6 @@ export function ProductFilters({ counts }: ProductFiltersProps) {
     category: true,
     metalType: true,
     stoneType: true,
-    priceRange: true,
-    certification: true,
     size: true,
   })
 
@@ -99,14 +97,7 @@ export function ProductFilters({ counts }: ProductFiltersProps) {
     'stone',
     parseAsArrayOf(parseAsString).withDefault([]).withOptions(NUQS_OPTIONS)
   )
-  const [maxPrice, setMaxPrice] = useQueryState(
-    'max',
-    parseAsString.withDefault('10000').withOptions(NUQS_OPTIONS)
-  )
-  const [hasCert, setHasCert] = useQueryState(
-    'cert',
-    parseAsBoolean.withDefault(false).withOptions(NUQS_OPTIONS)
-  )
+  
   const [size, setSize] = useQueryState(
     'size',
     parseAsString.withDefault('').withOptions(NUQS_OPTIONS)
@@ -253,46 +244,7 @@ export function ProductFilters({ counts }: ProductFiltersProps) {
 
       <Separator className="bg-primary/5" />
 
-      {/* Price Range */}
-      <div className="flex flex-col gap-4">
-        <button
-          onClick={() => toggleSection('priceRange')}
-          className="flex items-center justify-between font-semibold text-[15px] hover:text-[#B88E2F] transition-colors"
-        >
-          Price Range
-          {openSections.priceRange ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
-        </button>
-        {openSections.priceRange && (
-          <div className="flex flex-col gap-5 pt-2">
-            <Slider
-              value={[parseInt(maxPrice)]}
-              onValueChange={(vals: number | readonly number[]) => setMaxPrice((Array.isArray(vals) ? vals[0] : vals).toString())}
-              max={10000}
-              step={100}
-              className="w-full"
-            />
-            <div className="flex items-center justify-between text-[13px] font-medium text-muted-foreground">
-              <span>$0</span>
-              <span>${parseInt(maxPrice).toLocaleString()}</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <Separator className="bg-primary/5" />
-
-      {/* Certification Toggle */}
-      <div className="flex items-center space-x-3 bg-[#FCFBF9] p-3 rounded-xl border border-[#F59E0B]/20">
-        <Checkbox
-          id="has-cert"
-          checked={hasCert}
-          onCheckedChange={(checked) => setHasCert(checked === true)}
-          className="size-5 data-[state=checked]:bg-[#F59E0B] data-[state=checked]:border-[#F59E0B] border-[#F59E0B]/50"
-        />
-        <Label htmlFor="has-cert" className="font-semibold text-sm cursor-pointer">Has Certification</Label>
-      </div>
-
-      <Separator className="bg-primary/5" />
+ 
 
       {/* Size Available */}
       <div className="flex flex-col gap-4">

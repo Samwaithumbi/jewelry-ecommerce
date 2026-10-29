@@ -11,6 +11,12 @@ import { productVariants } from "@/drizzle/src/db/schema";
 import { eq, asc } from "drizzle-orm";
 
 export async function addToCart(item: CartItem) {
+    const quantity = Number(item.qty);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
+        throw new Error("Invalid quantity. Quantity must be an integer between 1 and 100.");
+    }
+    item.qty = quantity;
+
     const sessionId = await getCartSessionId();
     const cart = await getCart(sessionId);
 

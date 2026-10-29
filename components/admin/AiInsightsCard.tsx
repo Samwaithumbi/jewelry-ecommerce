@@ -1,6 +1,7 @@
 "use client"
 
 import { TrendingUp, AlertTriangle, Zap, Sparkles } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import type { InsightData } from "@/app/actions/admin/get-dashboard-data"
 
 const iconMap: Record<string, any> = {
@@ -27,8 +28,17 @@ export function AiInsightsCard({ insights, isLoading }: AiInsightsCardProps) {
       <h2 className="text-sm font-semibold mb-3">Today&apos;s insights</h2>
 
       {isLoading ? (
-        <div className="text-center text-muted-foreground text-sm py-4">
-          Generating insights...
+        <div className="space-y-3.5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex gap-2.5">
+              <Skeleton className="mt-0.5 h-6 w-6 rounded-md shrink-0 bg-amber-200/60" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-28 bg-amber-300/40" />
+                <Skeleton className="h-2.5 w-full bg-amber-200/30" />
+                <Skeleton className="h-2.5 w-4/5 bg-amber-200/30" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div className="space-y-3">

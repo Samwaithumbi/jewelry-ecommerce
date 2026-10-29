@@ -209,8 +209,8 @@ export async function createOrderFromCart(
     }
 
     const shippingCents = 0; // Free shipping
-    // F-24: Standard gift wrap price (Ksh 500 = 50,000 cents)
-    const GIFT_WRAP_PRICE_CENTS = 50000;
+    // F-24: Standard gift wrap price (Ksh 100 = 10,000 cents)
+    const GIFT_WRAP_PRICE_CENTS = 10000;
     const giftWrapCents = giftOptions?.isGiftWrap ? GIFT_WRAP_PRICE_CENTS : 0;
     const discountCents = 0;
     const taxableAmount = Math.max(0, subtotalCents + giftWrapCents - discountCents);
@@ -278,57 +278,62 @@ export async function createOrderFromCart(
       }
     }
 
-    // 6. Generate order number and persist order with immutable snapshots
+    // 6. Generate order number and persist order with immutable snapshots in atomic transaction
     const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-    const [createdOrder] = await db.insert(orders).values({
-      id: orderId,
-      orderNumber,
-      userId: userId || null,
-      status: 'pending',
-      subtotalCents,
-      shippingCents,
-      taxCents,
-      giftWrapCents,
-      discountCents,
-      totalCents,
-      shippingAddress: shippingAddress ? {
-        name: shippingAddress.fullName,
-        phone: shippingAddress.phone,
-        email: shippingAddress.email,
-        address: shippingAddress.address,
-        city: shippingAddress.city,
-        postalCode: shippingAddress.postalCode,
-        country: shippingAddress.country,
-      } : {
-        name: 'Customer Name',
-        phone: '',
-        email: '',
-        address: '',
-        city: '',
-        postalCode: '',
-        country: 'Kenya',
-      },
-      isGift: giftOptions?.isGiftWrap || false,
-      giftMessage: giftOptions?.giftMessage || null,
-      giftWrap: giftOptions?.isGiftWrap || false,
-      hidePriceOnSlip: giftOptions?.shipAsGift || false,
-    }).returning();
+    const createdOrder = await db.transaction(async (tx) => {
+      const [orderRecord] = await tx.insert(orders).values({
+        id: orderId,
+        orderNumber,
+        userId: userId || null,
+        status: 'pending',
+        subtotalCents,
+        shippingCents,
+        taxCents,
+        giftWrapCents,
+        discountCents,
+        totalCents,
+        deviceFingerprint: sessionId,
+        shippingAddress: shippingAddress ? {
+          name: shippingAddress.fullName,
+          phone: shippingAddress.phone,
+          email: shippingAddress.email,
+          address: shippingAddress.address,
+          city: shippingAddress.city,
+          postalCode: shippingAddress.postalCode,
+          country: shippingAddress.country,
+        } : {
+          name: 'Customer Name',
+          phone: '',
+          email: '',
+          address: '',
+          city: '',
+          postalCode: '',
+          country: 'Kenya',
+        },
+        isGift: giftOptions?.isGiftWrap || false,
+        giftMessage: giftOptions?.giftMessage || null,
+        giftWrap: giftOptions?.isGiftWrap || false,
+        hidePriceOnSlip: giftOptions?.shipAsGift || false,
+      }).returning();
 
-    // 7. Store immutable price snapshots in orderItems
-    for (const item of verifiedItems) {
-      await db.insert(orderItems).values({
-        id: crypto.randomUUID(),
-        orderId: createdOrder.id,
-        productId: item.productId,
-        variantId: item.variantId || null,
-        qty: item.qty,
-        priceCents: item.authoritativeUnitPriceCents, // Immutable authoritative price snapshot
-        engravingText: item.engravingText || null,
-        engravingFont: item.engravingFont || null,
-        engravingPriceCents: item.engravingPriceCents || null,
-      });
-    }
+      // 7. Store immutable price snapshots in orderItems inside the transaction
+      for (const item of verifiedItems) {
+        await tx.insert(orderItems).values({
+          id: crypto.randomUUID(),
+          orderId: orderRecord.id,
+          productId: item.productId,
+          variantId: item.variantId || null,
+          qty: item.qty,
+          priceCents: item.authoritativeUnitPriceCents, // Immutable authoritative price snapshot
+          engravingText: item.engravingText || null,
+          engravingFont: item.engravingFont || null,
+          engravingPriceCents: item.engravingPriceCents || null,
+        });
+      }
+
+      return orderRecord;
+    });
 
     // 8. Note on cart clearing:
     // Cart is intentionally preserved here. It is cleared on the checkout success page

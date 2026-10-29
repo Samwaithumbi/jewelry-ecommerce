@@ -33,6 +33,7 @@ export async function GET(
         taxCents: orders.taxCents,
         totalCents: orders.totalCents,
         shippingAddress: orders.shippingAddress,
+        deviceFingerprint: orders.deviceFingerprint,
         createdAt: orders.createdAt,
       })
       .from(orders)
@@ -53,12 +54,28 @@ export async function GET(
     const sessionUserId = session?.user?.id;
     const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'admin';
 
-    // If order belongs to a registered customer, caller must be owner or admin
-    if (order.userId && order.userId !== sessionUserId && !isAdmin) {
-      return NextResponse.json(
-        { success: false, error: 'Order not found' },
-        { status: 404 }
+    if (order.userId) {
+      // If order belongs to a registered customer, caller must be owner or admin
+      if (order.userId !== sessionUserId && !isAdmin) {
+        return NextResponse.json(
+          { success: false, error: 'Order not found' },
+          { status: 404 }
+        );
+      }
+    } else {
+      // Guest order: must be admin or match the guest session that created the order
+      const guestSession = request.cookies.get('guest_session')?.value;
+      const isGuestOwner = Boolean(
+        guestSession &&
+        order.deviceFingerprint &&
+        guestSession === order.deviceFingerprint
       );
+      if (!isGuestOwner && !isAdmin) {
+        return NextResponse.json(
+          { success: false, error: 'Order not found' },
+          { status: 404 }
+        );
+      }
     }
 
     // Get order items with product details
