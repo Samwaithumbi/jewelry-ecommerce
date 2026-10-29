@@ -1,11 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { Heart,  User, Sparkle, ChevronDown, Menu, X } from "lucide-react"
+import { Heart, User, Sparkle, ChevronDown, Menu, X, Search } from "lucide-react"
 import { CartSheet } from "@/components/cart/cart-sheet"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { getWishlistCount } from "@/app/actions/wishlist/get-wishlist-count"
+import { SearchBar } from "@/components/search/search-bar"
 
 interface NavbarProps {
   user?:{
@@ -17,7 +19,10 @@ interface NavbarProps {
 
 
 export function  Navbar({user}:NavbarProps) {
+  const pathname = usePathname()
+  const isProductsPage = pathname ? pathname.startsWith("/products") : false
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
 
   useEffect(() => {
@@ -33,25 +38,23 @@ export function  Navbar({user}:NavbarProps) {
     }
   }, [])
 
-
-
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between gap-2 sm:gap-4">
         {/* Logo and Brand Name */}
-        <div className="flex items-center">
+        <div className="flex items-center shrink-0">
           <Link href="/" className="flex items-center space-x-2.5 sm:space-x-3">
             <div className="relative size-7 rounded-full bg-[#B88E2F] flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-xs">
               L
             </div>
             <span className="font-serif text-base sm:text-lg md:text-2xl font-bold tracking-wider text-[#111827] truncate">
-              LUMINA JEWELS
+              LUMINA
             </span>
           </Link>
         </div>
 
         {/* Primary Navigation - Desktop */}
-        <nav className="hidden lg:flex items-center gap-8">
+        <nav className="hidden lg:flex items-center gap-6 xl:gap-8 shrink-0">
           <div className="relative group">
             <button className="flex items-center text-sm font-medium text-[#111827] transition-colors hover:text-[#B88E2F]">
               Shop
@@ -117,8 +120,25 @@ export function  Navbar({user}:NavbarProps) {
           </Link>
         </nav>
 
+        {/* Global Live SearchBar - Desktop: Always Open */}
+        <div className="hidden md:block flex-1 max-w-sm lg:max-w-md xl:max-w-lg mx-2 lg:mx-4">
+          <SearchBar />
+        </div>
+
         {/* Right Side Icons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Mobile Search Toggle (hidden when already open on products pages) */}
+          {!isProductsPage && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden text-[#111827] hover:text-[#B88E2F]"
+              onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
+              aria-label="Toggle search"
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+          )}
 
           <Button variant="ghost" size="icon" className="relative text-[#111827] hover:text-[#B88E2F]">
             <Link href="/account/wishlist">
@@ -161,6 +181,13 @@ export function  Navbar({user}:NavbarProps) {
         </div>
       </div>
 
+      {/* Mobile Search Bar - Always Open on Products & Product Detail Pages, or when toggled */}
+      {(mobileSearchOpen || isProductsPage) && (
+        <div className="md:hidden border-t border-slate-100 bg-white/95 backdrop-blur px-4 py-2.5 shadow-xs animate-in slide-in-from-top-1 duration-150">
+          <SearchBar onSelectResult={() => setMobileSearchOpen(false)} />
+        </div>
+      )}
+
 
     
     {/* Mobile Menu */}
@@ -177,6 +204,9 @@ export function  Navbar({user}:NavbarProps) {
         {/* Menu panel */}
         <div className="absolute left-0 right-0 top-full z-50 border-t bg-white py-5 shadow-xl lg:hidden max-h-[calc(100vh-4rem)] overflow-y-auto">
           <nav className="container mx-auto px-6 flex flex-col gap-3">
+            <div className="pt-1 pb-2">
+              <SearchBar onSelectResult={() => setMobileMenuOpen(false)} />
+            </div>
             <Link
               href="/products"
               onClick={() => setMobileMenuOpen(false)}

@@ -383,11 +383,15 @@ export function InventoryClient({ initialData }: { initialData: { items: Invento
 
       {/* Restock Modal */}
       {selectedRestockItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/35 backdrop-blur-[6px] animate-in fade-in duration-200"
+          onClick={handleCloseRestock}
+        >
           <div
-            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200"
+            className="w-[75vw] max-w-[28rem] sm:w-full sm:max-w-md max-h-[85dvh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200"
             role="dialog"
             aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-slate-100 pb-4">

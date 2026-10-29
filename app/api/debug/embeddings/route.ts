@@ -13,10 +13,11 @@ export async function GET(req: Request) {
 
   // 1. Check Database Vector Extension & Column Type
   try {
+    await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
     const extCheck = await db.execute(sql`
-      SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';
+      SELECT extname, extversion FROM pg_extension WHERE extname IN ('vector', 'pg_trgm');
     `);
-    diagnostics.pgVectorExtension = extCheck.rows;
+    diagnostics.pgExtensions = extCheck.rows;
 
     const colCheck = await db.execute(sql`
       SELECT column_name, data_type, udt_name 
@@ -28,9 +29,16 @@ export async function GET(req: Request) {
     diagnostics.dbExtensionCheckError = err.message || String(err);
   }
 
-  // 2. Optional: backfill missing products if requested
+  // 2. Optional: backfill or reindex products if requested
   const { searchParams } = new URL(req.url);
-  if (searchParams.get("backfill") === "true") {
+  if (searchParams.get("reindex") === "true") {
+    const { reindexAllEmbeddings } = await import("@/lib/products/vectorstorage");
+    try {
+      diagnostics.reindexResult = await reindexAllEmbeddings();
+    } catch (err: any) {
+      diagnostics.reindexError = err.message || String(err);
+    }
+  } else if (searchParams.get("backfill") === "true") {
     const { backfillMissingEmbeddings } = await import("@/lib/products/vectorstorage");
     try {
       diagnostics.backfillResult = await backfillMissingEmbeddings(20);
@@ -59,17 +67,19 @@ export async function GET(req: Request) {
     diagnostics.productsMissingEmbedding = allProductsStatus.filter((p) => !p.hasEmbedding).length;
     diagnostics.products = allProductsStatus;
 
-    // 4. Optional: Test semantic vector search via ?q=your+query
+    // 4. Optional: Test single semantic vector search via ?q=your+query
     const testQuery = searchParams.get("q");
     if (testQuery && testQuery.trim()) {
-      const { searchSimilarProducts } = await import("@/lib/products/vectorstorage");
+      const { searchSemantic } = await import("@/lib/search/semantic");
       try {
+        const hybridRes = await searchSemantic(testQuery.trim(), {
+          limit: 5,
+        });
         diagnostics.testSemanticSearch = {
           query: testQuery.trim(),
-          results: await searchSimilarProducts(testQuery.trim(), {
-            limit: 5,
-            similarityThreshold: 0.2,
-          }),
+          searchLogId: hybridRes.searchLogId,
+          totalCount: hybridRes.totalCount,
+          results: hybridRes.results,
         };
       } catch (err: any) {
         diagnostics.testSemanticSearchError = err.message || String(err);

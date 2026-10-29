@@ -1,6 +1,7 @@
 
 import type { NextConfig } from "next";
 
+// Force Next.js dev server to reload config and reset Turbopack compilation state
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
     "0kk5xcrl-3000.uks1.devtunnels.ms",

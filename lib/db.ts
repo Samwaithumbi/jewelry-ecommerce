@@ -45,6 +45,8 @@ export const db: AppDb =
     schema: fullSchema,
   });
 
+export { pool };
+
 if (process.env.NODE_ENV !== "production") {
   globalThis.__neonPool = pool;
   globalThis.__drizzleDb = db;

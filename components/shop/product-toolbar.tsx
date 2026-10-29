@@ -1,9 +1,8 @@
 "use client"
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
-import { LayoutGrid, List, Search, Sparkles, ScanLine, SlidersHorizontal } from "lucide-react"
+import { LayoutGrid, List, Sparkles, ScanLine, SlidersHorizontal } from "lucide-react"
 
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -135,21 +134,6 @@ export function ShopHeader({ totalCount = 0, currentCategory, searchQuery }: Sho
     ? `Results for "${searchQuery}"`
     : "All Fine Jewelry"
 
-  const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const form = e.currentTarget
-    const input = form.elements.namedItem("q") as HTMLInputElement
-    const val = input.value.trim()
-    const params = new URLSearchParams(searchParams.toString())
-    if (val) {
-      params.set("q", val)
-    } else {
-      params.delete("q")
-    }
-    params.delete("page")
-    router.push(`${pathname}?${params.toString()}`)
-  }
-
   return (
     <div className="w-full flex flex-col gap-6 md:flex-row md:items-end justify-between py-8 border-b border-primary/10 mb-8">
       <div className="flex flex-col gap-2">
@@ -173,26 +157,14 @@ export function ShopHeader({ totalCount = 0, currentCategory, searchQuery }: Sho
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Search */}
-        <form onSubmit={handleSearchSubmit} className="relative w-full md:w-[320px]">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input 
-            name="q"
-            defaultValue={searchQuery || ""}
-            type="search" 
-            placeholder="Search catalog..." 
-            className="w-full pl-11 rounded-full bg-white border-primary/15 h-11 shadow-sm focus-visible:ring-[#B88E2F]" 
-          />
-        </form>
-
         {/* Action Buttons */}
-        <a href="/visual-search" className="hidden md:flex">
+        <a href="/visual-search">
           <Button type="button" variant="outline" className="rounded-full gap-2 bg-[#FCFBF9] border-[#B88E2F]/30 text-[#B88E2F] hover:bg-[#B88E2F]/10 hover:text-[#B88E2F] h-11 px-5 shadow-sm transition-all duration-200">
             <ScanLine className="size-4" />
-            <span className="font-semibold text-sm">Visual</span>
+            <span className="font-semibold text-sm">Visual Search</span>
           </Button>
         </a>
-        <a href="/ai-stylist" className="hidden md:flex">
+        <a href="/ai-stylist">
           <Button type="button" className="rounded-full gap-2 bg-[#111827] text-white hover:bg-[#111827]/90 h-11 px-5 shadow-sm transition-all duration-200">
             <Sparkles className="size-4 text-[#F59E0B]" />
             <span className="font-semibold text-sm">AI Stylist</span>

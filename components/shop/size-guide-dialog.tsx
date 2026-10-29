@@ -30,7 +30,7 @@ export function SizeGuideDialog() {
             Find your perfect fit using our international conversion chart.
           </DialogDescription>
         </DialogHeader>
-        <div className="mt-4 border rounded-lg overflow-hidden">
+        <div className="mt-4 border rounded-lg overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="bg-muted text-muted-foreground bg-gray-50 dark:bg-gray-800">
               <tr>

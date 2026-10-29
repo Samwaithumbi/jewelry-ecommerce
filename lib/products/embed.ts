@@ -1,6 +1,7 @@
 /**
  * lib/products/embed.ts
  * Generates high-signal textual representation of jewelry products for vector embeddings.
+ * Tunes semantic representations for abstract/conceptual queries (timeless, bold statement, cozy delicate, etc.)
  */
 
 export interface ProductVariantForEmbedding {
@@ -57,6 +58,95 @@ function cleanText(text: string | null | undefined): string | null {
     .replace(/\s+/g, " ")
     .trim();
   return stripped.length > 0 ? stripped : null;
+}
+
+/**
+ * Derives aesthetic and conceptual keywords to bridge the gap between
+ * emotional customer queries ("something timeless", "bold statement piece", "cozy and delicate")
+ * and catalog jewelry specs.
+ */
+function deriveAestheticAffinities(product: ProductForEmbedding): string[] {
+  const affinities = new Set<string>();
+  const nameLower = (product.name || "").toLowerCase();
+  const descLower = (product.description || "").toLowerCase();
+  const catLower = (product.category || "").toLowerCase();
+  const textCombined = `${nameLower} ${descLower}`;
+
+  // 1. "Something Timeless" & Classic Elegance
+  if (
+    catLower === "ring" ||
+    catLower === "necklace" ||
+    catLower === "pendant" ||
+    catLower === "earring" ||
+    textCombined.includes("classic") ||
+    textCombined.includes("solitaire") ||
+    textCombined.includes("gold") ||
+    textCombined.includes("diamond") ||
+    textCombined.includes("vintage")
+  ) {
+    affinities.add("timeless design");
+    affinities.add("classic elegance");
+    affinities.add("enduring luxury");
+  }
+
+  // 2. "Bold Statement Piece" & Glamour
+  if (
+    catLower === "bangle" ||
+    catLower === "set" ||
+    textCombined.includes("bold") ||
+    textCombined.includes("full set") ||
+    textCombined.includes("glamour") ||
+    textCombined.includes("dramatic") ||
+    (product.basePriceCents && product.basePriceCents > 200000)
+  ) {
+    affinities.add("bold statement piece");
+    affinities.add("striking presence");
+    affinities.add("eye-catching luxury");
+  }
+
+  // 3. "Cozy and Delicate" & Minimalist Everyday
+  if (
+    catLower === "earring" ||
+    catLower === "bracelet" ||
+    textCombined.includes("delicate") ||
+    textCombined.includes("minimalist") ||
+    textCombined.includes("subtle") ||
+    textCombined.includes("dainty") ||
+    textCombined.includes("everyday") ||
+    textCombined.includes("simple")
+  ) {
+    affinities.add("cozy and delicate");
+    affinities.add("minimalist everyday aesthetic");
+    affinities.add("dainty fine jewelry");
+  }
+
+  // 4. "Romantic & Proposal / Anniversary" - Strictly category-aligned
+  if (
+    textCombined.includes("rose") ||
+    textCombined.includes("heart") ||
+    textCombined.includes("wedding") ||
+    textCombined.includes("love") ||
+    textCombined.includes("anniversary")
+  ) {
+    affinities.add("romantic anniversary gift");
+    if (catLower === "ring" || nameLower.includes("ring")) {
+      affinities.add("proposal ring");
+      affinities.add("wedding ring");
+    } else if (catLower === "earring" || nameLower.includes("earring")) {
+      affinities.add("wedding earrings");
+      affinities.add("bridal earrings");
+    } else if (catLower === "necklace" || catLower === "pendant") {
+      affinities.add("bridal necklace");
+    } else if (catLower === "bangle" || catLower === "bracelet") {
+      affinities.add("wedding bangle");
+      affinities.add("bridal bracelet");
+    } else if (catLower === "set") {
+      affinities.add("bridal jewelry set");
+      affinities.add("wedding set");
+    }
+  }
+
+  return Array.from(affinities);
 }
 
 /**
@@ -122,7 +212,6 @@ export function buildProductEmbeddingText(product: ProductForEmbedding): string 
 
   const desc = cleanText(product.description);
   if (desc && desc !== shortDesc) {
-    // Truncate long descriptions to avoid exceeding embedding window or diluting keywords
     const truncatedDesc = desc.length > 500 ? desc.slice(0, 500) + "..." : desc;
     parts.push(truncatedDesc);
   }
@@ -141,6 +230,12 @@ export function buildProductEmbeddingText(product: ProductForEmbedding): string 
 
   if (product.styleTags && product.styleTags.length > 0) {
     parts.push(`Style: ${product.styleTags.join(", ")}`);
+  }
+
+  // 7. Conceptual & Aesthetic Moat Associations
+  const aestheticAffinities = deriveAestheticAffinities(product);
+  if (aestheticAffinities.length > 0) {
+    parts.push(`Aesthetics: ${aestheticAffinities.join(", ")}`);
   }
 
   return parts.filter(Boolean).join(". ");

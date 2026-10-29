@@ -197,6 +197,64 @@ export async function backfillMissingEmbeddings(
 }
 
 /**
+ * Re-embed all active products in the database using the updated embedding text representation.
+ */
+export async function reindexAllEmbeddings(): Promise<{
+  processed: number;
+  errors: number;
+}> {
+  const allActiveProducts = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      slug: products.slug,
+      description: products.description,
+      shortDesc: products.shortDesc,
+      category: products.category,
+      metalType: products.metalType,
+      metalPurity: products.metalPurity,
+      basePriceCents: products.basePriceCents,
+      weightGrams: products.weightGrams,
+      occasionTags: products.occasionTags,
+      styleTags: products.styleTags,
+    })
+    .from(products)
+    .where(eq(products.active, true));
+
+  if (allActiveProducts.length === 0) {
+    return { processed: 0, errors: 0 };
+  }
+
+  const productIds = allActiveProducts.map((p) => p.id);
+  const variants = await db
+    .select({
+      productId: productVariants.productId,
+      stoneType: productVariants.stoneType,
+      stoneCarat: productVariants.stoneCarat,
+      stoneCut: productVariants.stoneCut,
+      stoneColor: productVariants.stoneColor,
+      stoneClarity: productVariants.stoneClarity,
+      size: productVariants.size,
+    })
+    .from(productVariants)
+    .where(inArray(productVariants.productId, productIds));
+
+  const variantsByProduct = new Map<string, ProductVariantForEmbedding[]>();
+  for (const v of variants) {
+    const list = variantsByProduct.get(v.productId) || [];
+    list.push(v);
+    variantsByProduct.set(v.productId, list);
+  }
+
+  const toEmbed = allActiveProducts.map((p) => ({
+    ...p,
+    variants: variantsByProduct.get(p.id) || [],
+  }));
+
+  return batchEmbedAndSaveProducts(toEmbed);
+}
+
+/**
  * Perform semantic vector similarity search against active products using pgvector.
  * Uses cosine distance with optional category, metal, and price filtering.
  */
